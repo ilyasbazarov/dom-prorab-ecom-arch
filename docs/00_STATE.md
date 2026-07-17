@@ -18,4 +18,4 @@
 | Track B (fast lane) | ОТКРЫТ, ждёт снапшотов |
 
 ## Блокеры
-- [ ] Снапшоты D1–D6 (.docx) в l3-external/raw/
+- [x] Снапшоты D1–D6 в l3-external/raw/ + 26 md-фрагментов в l3-external/md/ (MANIFEST заполнен)
