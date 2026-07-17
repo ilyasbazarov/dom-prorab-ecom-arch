@@ -20,9 +20,9 @@
 
 ## Формат выхода (строго)
 Один bash-блок:
-1. `set -e` + проверка корня репо (`test -f docs/02_ADR_LOG.md`).
+1. Проверка корня репо (`test -f docs/02_ADR_LOG.md || exit 1`) + `git pull --rebase origin main`. БЕЗ `set -e` — блок исполняется интерактивно, ошибка должна быть видна, а не убивать shell.
 2. Запись файлов: полные новые файлы — heredoc `cat > ... << 'EOF'`; точечные правки — python-heredoc с точным совпадением заменяемых строк (упал поиск → скрипт падает, не молчит).
-3. `git add -A && git commit -m "<тип>: <суть> (session <id>)" && git log --format='%H' -1`.
+3. `git add -A && git commit -m "<тип>: <суть> (session <id>)" && git push origin main && git log --format='%H' -1`.
 После блока — сводка «файл → операция» и напоминание: `bash tools/verify.sh` после коммита, новый SHA — в следующую сессию.
 
 ## Launch-строка (копипаст для Owner)

@@ -63,9 +63,12 @@ if git rev-parse HEAD~1 >/dev/null 2>&1; then
 fi
 
 # 5. l3-external/raw неизменен против предыдущего коммита (immutable, К-3)
+# Санкционированное исключение: ALLOW_RAW_CHANGE=1 bash tools/verify.sh (только при явном решении/ADR, см. К-12)
 if git rev-parse HEAD~1 >/dev/null 2>&1; then
-  if git diff --name-only HEAD~1 HEAD -- l3-external/raw/ | grep -q .; then
-    err "l3-external/raw изменён (immutable нарушен — новые версии = новые файлы + ADR)"
+  if [ "${ALLOW_RAW_CHANGE:-0}" = "1" ]; then
+    ok "l3-external/raw: изменение санкционировано (ALLOW_RAW_CHANGE=1)"
+  elif git diff --name-only HEAD~1 HEAD -- l3-external/raw/ | grep -q .; then
+    err "l3-external/raw изменён (immutable нарушен — новые версии = новые файлы + ADR; санкционировано → ALLOW_RAW_CHANGE=1)"
   else ok "l3-external/raw неизменен"; fi
 fi
 

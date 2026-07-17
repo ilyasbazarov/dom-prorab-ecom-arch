@@ -34,3 +34,7 @@ Track A: фазы 1–7 последовательно; решения, затр
 (5) Введён детерминированный гейт tools/verify.sh (хэши MANIFEST, монотонность и append-only ADR, immutable raw, структура); запуск Owner'ом после каждого apply-коммита; RED блокирует новые задачи.
 (6) Запись в репо — только через Owner (session-блок → Applier → bash → коммит). Прямой push агентов запрещён.
 Артефакты: docs/03_ROLES, 04_SESSION_PROTOCOL, 05_ROADMAP, 06_BRIEF_TEMPLATE, prompts/{business,architect,executor,applier}, tools/verify.sh, README (переписан).
+
+## ADR-008 [PROCESS] — Git-дисциплина и санкционированные исключения verify
+**Дата:** 2026-07-18. **Статус:** ACCEPTED
+Контекст: инцидент рассинхрона — docx заливались через веб-интерфейс GitHub, локальный клон вёл параллельную историю; разрулено rebase. Решение: (1) apply-скрипты начинаются с `git pull --rebase origin main` и заканчиваются `git push origin main`; (2) интерактивные блоки без `set -e`; (3) правки только через клон (К-11); (4) verify получает механизм ALLOW_RAW_CHANGE=1 для санкционированных изменений immutable-зоны (К-12). Последствия: prompts/applier.md, tools/verify.sh, docs/01_CONVENTIONS.md.
