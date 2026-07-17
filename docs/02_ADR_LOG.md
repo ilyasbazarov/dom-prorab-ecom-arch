@@ -23,3 +23,14 @@ Track A: фазы 1–7 последовательно; решения, затр
 ## ADR-006 — Стратегия снапшотов Google Docs с вкладками
 **Дата:** 2026-07-18. **Статус:** ACCEPTED
 Экспорт каждого дока в .docx (содержит все вкладки) → l3-external/raw/. Конвертация на стороне агента: docx → md-файл на вкладку (l3-external/md/) + MANIFEST (док → вкладка → файл → sha256). Единица цитирования — md-фрагмент; docx — оригинал для арбитража.
+
+## ADR-007 [PROCESS] — Операционная модель: роли, сессии, промты, verify-гейт
+**Дата:** 2026-07-18. **Статус:** ACCEPTED
+Принят docs-driven multi-agent метод (базис: дистилляция `_METHOD` v1.0 из holika @ ec7e6cc) с адаптациями:
+(1) Роли: Business/CEO (новая, Fable) + Architect (Opus; два режима: решения/ревью/роудмап + брифы, поглотил Генератора) + Executor (Sonnet) + Applier (Sonnet) + Owner. Биндинг моделей — таблица в 03_ROLES, меняется без ADR.
+(2) Бизнес-решения = ADR с тегом [BUSINESS] в общем логе; входят в L0-контур как ограничения Architect.
+(3) Session-блок расширен секцией REGISTER_PATCHES (регистры — основной рабочий продукт проекта).
+(4) Applier выдаёт один commit-скрипт (К-6), а не полные файлы.
+(5) Введён детерминированный гейт tools/verify.sh (хэши MANIFEST, монотонность и append-only ADR, immutable raw, структура); запуск Owner'ом после каждого apply-коммита; RED блокирует новые задачи.
+(6) Запись в репо — только через Owner (session-блок → Applier → bash → коммит). Прямой push агентов запрещён.
+Артефакты: docs/03_ROLES, 04_SESSION_PROTOCOL, 05_ROADMAP, 06_BRIEF_TEMPLATE, prompts/{business,architect,executor,applier}, tools/verify.sh, README (переписан).
