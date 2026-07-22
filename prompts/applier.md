@@ -19,7 +19,7 @@
 - Ссылка на несуществующую секцию/таблицу → `СТРУКТУРНОЕ НЕСООТВЕТСТВИЕ: <что не нашлось>`, стоп, не угадывать.
 
 ## Формат выхода (строго)
-Один bash-блок:
+Один bash-блок (обязательно по правилам описанным в https://github.com/ilyasbazarov/dom-prorab-ecom-arch/blob/1dca225f86173f8c16c12cbc3ffa2c99008eae21/docs/07_OPERATIONAL_LESSONS.md):
 1. Проверка корня репо (`test -f docs/02_ADR_LOG.md || exit 1`) + `git pull --rebase origin main`. БЕЗ `set -e` — блок исполняется интерактивно, ошибка должна быть видна, а не убивать shell.
 2. Запись файлов: полные новые файлы — heredoc `cat > ... << 'EOF'`; точечные правки — python-heredoc с точным совпадением заменяемых строк (упал поиск → скрипт падает, не молчит).
 3. `git add -A && git commit -m "<тип>: <суть> (session <id>)" && git push origin main && git log --format='%H' -1`.
