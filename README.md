@@ -52,6 +52,7 @@ docs/03_ROLES.md            — роли и биндинг моделей
 docs/04_SESSION_PROTOCOL.md — жизненный цикл сессий, session-блок
 docs/05_ROADMAP.md          — фазы Track A + Track B
 docs/06_BRIEF_TEMPLATE.md   — шаблон брифа
+docs/07_OPERATIONAL_LESSONS.md — известные грабли инструментария (shell/apply-скрипты)
 prompts/{business,architect,executor,applier}.md
 briefs/<ID>.md              — брифы задач
 sessions/<дата>_<id>.md     — логи сессий
