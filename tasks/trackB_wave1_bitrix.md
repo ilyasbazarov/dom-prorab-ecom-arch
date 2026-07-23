@@ -95,8 +95,12 @@ Scope (ADR-005 Track B): приведение ТЗ в согласованнос
 **Критерии приёмки.**
 - Обработчик реагирует на `order_in_progress` переходом «В работе / Ожидает сборки»; ветки
   `order_confirmed` нет.
-- Набор событий = `{order_in_progress, order_cancelled, order_completed}`
-  (+ `oos_at_picking` на отдельном endpoint).
+- Набор событий статус-маппинга 1С→CRM = `{order_completed, order_cancelled, order_partial,
+  order_in_progress}` — ровно четыре (`d5_t01@bb88448:1449-1456`; L0-канон
+  `l0-canon/canonical_order_flow.md` §4 T2). Ветка `order_partial` из обработчика НЕ удаляется.
+- Scope этого тикета — только устранение мёртвой ветки `order_confirmed`; поведение веток
+  `order_partial` и обработка `oos_at_picking` — вне scope (канал и место `oos_at_picking`
+  в контракте не установлены, устанавливается брифом F5-02).
 
 **Трассировка:** `d4_t03@bb88448:60,72,86,104` vs `d5_t01@bb88448:1449-1456`. Зависимости:
 имена ↔ `BITRIX-B1-03`.

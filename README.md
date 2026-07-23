@@ -55,6 +55,7 @@ docs/06_BRIEF_TEMPLATE.md   — шаблон брифа
 docs/07_OPERATIONAL_LESSONS.md — известные грабли инструментария (shell/apply-скрипты)
 prompts/{business,architect,executor,applier}.md
 briefs/<ID>.md              — брифы задач
+tasks/<имя>.md              — задачи, уходящие подрядчикам (самодостаточны, с трассировкой)
 sessions/<дата>_<id>.md     — логи сессий
 l2-registers/               — problem / contractor_questions / open_questions / assumptions
 l3-external/                — MANIFEST.md · raw/*.docx · md/<26 фрагментов>
