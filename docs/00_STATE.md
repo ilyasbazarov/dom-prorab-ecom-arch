@@ -1,9 +1,9 @@
 # STATE
 
-**Версия:** v0.3 · **updated:** 2026-07-22 · Architect (сессия arch_trackB_wave1_tasks_rev2)
+**Версия:** v0.3 · **updated:** 2026-07-22 · Architect (сессия arch_phase4_orderflow_clientno)
 
 ## Текущий фокус
-(Owner) коммит + отправка задач; (Architect) формат клиентского номера (ADR-010:60) / Canonical Order Flow (Фаза 4).
+(Owner) apply обоих ADR (ADR-012, ADR-013) → Applier → `bash tools/verify.sh`; далее — Business-сессия по `business_canon.md`.
 
 ## Статус фаз
 | Фаза/трек | Статус |
@@ -12,7 +12,7 @@
 | PREP. Операционная модель: роли, протокол, промты, verify (ADR-007) | DONE |
 | 1. Knowledge Repository (состав L0) | DONE — ADR-011 [ARCH]; seed l0-canon/invariants.md, l0-canon/domain_model.md, l2-registers/decisions_xref.md |
 | 2–3. Роли и pipeline | FOLDED в PREP |
-| 4. Business Canon + Canonical Order Flow | — |
+| 4. Business Canon + Canonical Order Flow | Canonical Order Flow — ADOPTED (ADR-013, l0-canon/canonical_order_flow.md); Business Canon — pending Business |
 | 5. Анализ корпуса D1–D6 | — |
 | 6. Исправления ТЗ | — |
 | 7. Diff → задачи подрядчикам | — |

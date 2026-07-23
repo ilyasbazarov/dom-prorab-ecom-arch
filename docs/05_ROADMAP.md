@@ -12,7 +12,7 @@
 | PREP | Роли, протокол сессий, промты, verify (ADR-007) | DONE этим коммитом |
 | 1 | Структура Knowledge Repository: состав L0-доков (Business Canon, Canonical Order Flow, Domain Model/Glossary, Invariants, Integration Contract), решение о судьбе реестров решений подрядчиков (DEC/COM/CON в D4/D5) | NEXT |
 | 2–3 | закрыты PREP (роли+pipeline); ревизия после Фазы 1 при необходимости | FOLDED |
-| 4 | Наполнение Business Canon + Canonical Order Flow (Business-сессии + Architect) | — |
+| 4 | Наполнение Business Canon + Canonical Order Flow (Business-сессии + Architect) | Canonical Order Flow — ADOPTED (ADR-013, l0-canon/canonical_order_flow.md); Business Canon — pending Business |
 | 5 | Анализ корпуса D1–D6 против канона; полная верификация Problem Register | — |
 | 6 | Исправления, обновление ТЗ, трассируемость | — |
 | 7 | Diff против версий подрядчиков → пакеты доработок | — |
