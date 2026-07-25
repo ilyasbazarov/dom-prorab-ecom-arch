@@ -57,8 +57,10 @@ prompts/{business,architect,executor,applier}.md
 briefs/<ID>.md              — брифы задач
 tasks/<имя>.md              — задачи, уходящие подрядчикам (самодостаточны, с трассировкой)
 sessions/<дата>_<id>.md     — логи сессий
+l0-canon/                   — L0-канон: invariants · domain_model · canonical_order_flow (ADR-011)
 l2-registers/               — problem / contractor_questions / open_questions / assumptions
 l3-external/                — MANIFEST.md · raw/*.docx · md/<26 фрагментов>
 tools/verify.sh             — детерминированный гейт целостности
+apply_*.sh (корень)         — разовые apply-скрипты; удаляются после verify GREEN
 ```
 Связанный репо: `dom-propraba-strategy` — Master KB (по SHA-ссылке; твёрдые секции [1],[2],[9], остальное по К-5).

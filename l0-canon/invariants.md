@@ -3,7 +3,7 @@ name: invariants
 owner: Architect
 status: STABLE
 change: только через ADR (К-2)
-sources: [ADR-009, ADR-010, ADR-011, ADR-012, d5_t05@bb88448]
+sources: [ADR-009, ADR-010, ADR-011, ADR-012, ADR-015, d5_t05@bb88448]
 ---
 
 # ИНВАРИАНТЫ — L0-канон («конституция»)
@@ -44,5 +44,8 @@ sources: [ADR-009, ADR-010, ADR-011, ADR-012, d5_t05@bb88448]
     [d5_t05@bb88448464cef4d8a57a22d37fef6f2841eb0dbd:44]
   - `payment_id` — вебхуки эквайринга (b_dom_processed_payments).
     [d5_t05@bb88448464cef4d8a57a22d37fef6f2841eb0dbd:31,78]
-  - `order_id + event` — вебхуки 1С→CRM (b_dom_processed_1c_events).
-    [d5_t05@bb88448464cef4d8a57a22d37fef6f2841eb0dbd:79]
+  - `(CRM_Deal_ID, event)` — дубль вебхуков 1С→CRM (b_dom_processed_1c_events); свежесть — курсор
+    `doc_version`, отдельный на канал; при `doc_version > курсор` событие применяется даже при
+    наличии пары в таблице. Прежняя формулировка `order_id + event` была ungrounded: провенанс
+    `d5_t05@723fe0a:79` содержит только имя таблицы, состав ключа в нём не описан (ADR-011 п.1).
+    [ADR-015; d4_t03@723fe0a:94; d5_t05@bb88448464cef4d8a57a22d37fef6f2841eb0dbd:79 — только таблица]

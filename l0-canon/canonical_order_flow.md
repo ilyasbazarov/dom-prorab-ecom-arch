@@ -3,7 +3,7 @@ name: canonical_order_flow
 owner: Architect
 status: STABLE
 change: только через ADR (К-2)
-sources: [ADR-005, ADR-009, ADR-010, ADR-011, ADR-012, ADR-013, d1_t03@65f2bba, d4_t02@65f2bba, d5_t01@65f2bba, d6_t03@65f2bba, d6_t04@65f2bba, d6_t05@65f2bba, d6_t06@65f2bba]
+sources: [ADR-005, ADR-009, ADR-010, ADR-011, ADR-012, ADR-013, ADR-015, ADR-017, d1_t03@65f2bba, d4_t02@65f2bba, d5_t01@65f2bba, d6_t03@65f2bba, d6_t04@65f2bba, d6_t05@65f2bba, d6_t06@65f2bba]
 ---
 
 # CANONICAL ORDER FLOW — L0-канон
@@ -61,9 +61,17 @@ HTTP 200 = строго факт проведения + резерв≠0 (DEC-33
 - `duplicate` (idempotent по `CRM_Deal_ID`) → лог, без повторных действий. [INV-5]
 > Клиентский номер существует на всех четырёх ветках (T0 предшествует T1). [INV-4]
 
-**T2 · События 1С→CRM.** Ровно 4: `order_completed` / `order_cancelled` / `order_partial` /
-`order_in_progress`. `order_confirmed` НЕ существует (см. P-06). Идемпотентность вебхука — ключ
-`order_id + event` (b_dom_processed_1c_events). [d5_t01@65f2bba:1453-1456; INV-5]
+**T2 · Исходящий контур 1С→CRM — ТРИ канала, каждый со своим URL; объединение URL запрещено.** [ADR-017]
+- **Статус-маппинг** (`CRM_Webhook_URL_OrderStatus`): `order_completed` / `order_cancelled` /
+  `order_in_progress` — CONFIRMED-DOC; `order_partial` — УСЛОВНОЕ до ответа List.kg (CQ-02), ветка
+  подрядчику не заказывается. `order_confirmed` НЕ существует (P-06). [d5_t01@65f2bba:1453-1456; ADR-017]
+- **`oos_at_picking`** (`CRM_Webhook_URL_OOS`, IC-PR-03) — отдельный вебхук, не событие статус-канала.
+  [d1_t03@723fe0a:117; d4_t03@723fe0a:88,295]
+- **`check_printed`** (`CRM_Webhook_Path_CheckPrinted`, IC-CK-05) — отдельный вебхук; общий URL для двух
+  каналов ТЗ прямо называет архитектурной ошибкой. [d1_t02@723fe0a:411,428; d5_t06@723fe0a:217,223,256]
+- Идемпотентность и порядок — РАЗНЫЕ механизмы: дубль — `(CRM_Deal_ID, event)`; свежесть — курсор
+  `doc_version`, ОТДЕЛЬНЫЙ на канал; при `doc_version > курсор` событие применяется даже при наличии
+  пары в таблице. [ADR-015; d4_t03@723fe0a:94; INV-5]
 
 **T3 · Последняя миля.**
 - Доставка: «Сборка завершена» → Яндекс claims/create → «Передан курьеру» → webhook `delivered`
@@ -85,7 +93,7 @@ HTTP 200 = строго факт проведения + резерв≠0 (DEC-33
 
 ## §5 Идемпотентность внешних вызовов (наследуется из INV-5)
 `CRM_Deal_ID`→эндпоинты 1С; `return_id`→create_return/create_rko; `UF_Purchase_Order_GUID`→close_order;
-`payment_id`→вебхуки эквайринга; `order_id+event`→вебхуки 1С→CRM.
+`payment_id`→вебхуки эквайринга; `(CRM_Deal_ID, event)` + курсор `doc_version` на канал → вебхуки 1С→CRM [ADR-015].
 
 ## §6 Инвариант клиентского номера в потоке
 На всех исходах T1 (success/partial/rejected/duplicate) и обоих типах получения клиент имеет
