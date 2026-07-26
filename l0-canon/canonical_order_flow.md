@@ -3,7 +3,7 @@ name: canonical_order_flow
 owner: Architect
 status: STABLE
 change: только через ADR (К-2)
-sources: [ADR-005, ADR-009, ADR-010, ADR-011, ADR-012, ADR-013, ADR-015, ADR-017, d1_t03@65f2bba, d4_t02@65f2bba, d5_t01@65f2bba, d6_t03@65f2bba, d6_t04@65f2bba, d6_t05@65f2bba, d6_t06@65f2bba]
+sources: [ADR-005, ADR-009, ADR-010, ADR-011, ADR-012, ADR-013, ADR-015, ADR-017, ADR-019, d1_t03@65f2bba, d4_t02@65f2bba, d5_t01@65f2bba, d6_t03@65f2bba, d6_t04@65f2bba, d6_t05@65f2bba, d6_t06@65f2bba]
 ---
 
 # CANONICAL ORDER FLOW — L0-канон
@@ -20,9 +20,12 @@ sources: [ADR-005, ADR-009, ADR-010, ADR-011, ADR-012, ADR-013, ADR-015, ADR-017
 - Семантика этого потока — Track A; не уходит подрядчикам до утверждения канона. [ADR-005]
 
 ## §1 Идентификаторы в потоке
-- **Клиентский номер** `UF_CLIENT_ORDER_NO` (формат `E-YYMMDD-NNNN-C`) — присваивается CRM при
-  создании сделки на чекауте, до платежа и до ответа 1С, при любом исходе. Единственный ID во
-  всех клиентских точках (thank-you, WA/SMS, ЛК, поддержка, возвраты); `order_id` HSM = он. [ADR-012, INV-4]
+- **Клиентский номер** `UF_CLIENT_ORDER_NO` (формат `E-YYMMDD-NNNN-C`, пример `E-260722-0043-4`;
+  алгоритм контрольной цифры `C` и правило переполнения `NNNN` — ADR-019, пример из ADR-012:94
+  аннулирован) — присваивается CRM при создании сделки на чекауте, до платежа и до ответа 1С, при
+  любом исходе. Единственный ID во всех клиентских точках (thank-you, WA/SMS, ЛК, поддержка,
+  возвраты); `order_id` HSM = он. Применимость к возвратам/рекламациям как отдельным заявкам —
+  открытый вопрос BQ-07 (P-31). [ADR-012, ADR-019, INV-4]
 - **Внутренние (сверка, клиенту не показываются):** `CRM_Deal_ID` (идемпотентность 1С-эндпоинтов),
   `purchase_order_guid`/`purchase_order_number`→`UF_1C_ORDER_NUMBER`, `closing_doc_guid`,
   `return_id`, `payment_id`. [INV-3, ADR-009; d5_t01@65f2bba:1451-1456]

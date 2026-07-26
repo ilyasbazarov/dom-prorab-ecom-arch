@@ -17,3 +17,4 @@
 | DEC-15 / DEC-CK-05 (гейт: /create_order только после платежа/подтверждения) | d6_t03@65f2bba:159,180 | RATIFIED→canon | ADR-010; canonical_order_flow §2 |
 | CON-06 (стоимость доставки не в предоплату) | d6_t03@65f2bba:88,96 | RATIFIED→canon | ADR-010; canonical_order_flow §2 |
 | DEC-33 (HTTP 200 = проведение + резерв≠0) | d1_t03@65f2bba:91 | RATIFIED→invariant | canonical_order_flow §4/T1; обработка partial/rejected — P-01/BITRIX-B1-01 |
+| COM-WA-02 (идентификатор заказа = UF_1C_ORDER_NUMBER; при пустом → CRM_Deal_ID с префиксом «Заявка #») | d4_t07@6ddf3d7:21 (логика #15 — :536-540, :548) | SUPERSEDED→ADR-012 / ADR-020 | P-19; ветка удаляется, `{{1}} = UF_CLIENT_ORDER_NO` безусловно (ADR-020 п.3); подстановка CRM_Deal_ID клиенту нарушает INV-3 |
