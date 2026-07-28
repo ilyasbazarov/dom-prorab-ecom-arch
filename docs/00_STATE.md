@@ -1,9 +1,9 @@
 # STATE
 
-**Версия:** v0.7 · **updated:** 2026-07-27 · Business (сессия BUS-BQ01-07)
+**Версия:** v0.8 · **updated:** 2026-07-28 · Architect (сессия arch_wave1_pack_and_method)
 
 ## Текущий фокус
-Business-сессия BQ-01…BQ-07 — DONE (ADR-021); остаётся: закрыть P-19 по брифу F4-02 → отправить оба пакета одним куском; прогнать бриф F4-01 (Executor) → Business-сессия по его выходу (наполнение business_canon.md); далее F5-01, F5-02, волна 2 Track B (разблокирована решениями BQ-02/BQ-03; в тикет волны 2 добавляются: триггеры/тексты #7 и #15, активация #9, составной номер в #10/#13, сужение DoD-11).
+Собрать пакет волны 1 — применить этот блок, затем F4-02 rev3 на Executor, затем Reviewer-сессия (Fable) перед отправкой, затем отправка с фиксацией даты и переводом CQ-01…CQ-04 в SENT. Параллельно: F4-03 (verify.sh) и F4-01 rev2 → Business-сессия по business_canon. Далее F5-01, F5-02, волна 2 Track B.
 
 ## Статус фаз
 | Фаза/трек | Статус |
@@ -12,11 +12,11 @@ Business-сессия BQ-01…BQ-07 — DONE (ADR-021); остаётся: зак
 | PREP. Операционная модель: роли, протокол, промты, verify (ADR-007) | DONE |
 | 1. Knowledge Repository (состав L0) | DONE — ADR-011 [ARCH]; seed l0-canon/invariants.md, l0-canon/domain_model.md, l2-registers/decisions_xref.md |
 | 2–3. Роли и pipeline | FOLDED в PREP |
-| 4. Business Canon + Canonical Order Flow | Canonical Order Flow — ADOPTED (ADR-013, l0-canon/canonical_order_flow.md); Business Canon — pending Business; вход готовит бриф F4-01 |
+| 4. Business Canon + Canonical Order Flow | Canonical Order Flow — ADOPTED (ADR-013, l0-canon/canonical_order_flow.md); Business Canon — pending Business; вход готовит бриф F4-01; добавлена роль Reviewer (ADR-024), артефакт prompts/reviewer.md |
 | 5. Анализ корпуса D1–D6 | ACTIVE (волны F5-01…F5-04; брифы F5-01, F5-02 выданы) |
 | 6. Исправления ТЗ | — |
 | 7. Diff → задачи подрядчикам | — |
-| Track B волна 1 (P-01,02,03,05,06,19) | В РАБОТЕ — пять тикетов готовы (`tasks/trackB_wave1_bitrix.md:11,41,90`, `tasks/trackB_wave1_1c.md:22,58`); rev4 BITRIX-B1-06 (узкий AC) и rev2 BITRIX-B1-03 (`event_id` не существует → ключ `CRM_Deal_ID + event`, ADR-015) применены. Шестой тикет — P-19, готовится по брифу F4-02 rev2: эскалация Executor'а закрыта ADR-019 (алгоритм контрольной цифры; пример `…-8` невалиден) и ADR-020 (закрытый перечень 11 позиций перепривязки), HOLD по этим пунктам снят. Отправка: оба пакета синхронно, одним куском (решение Owner 2026-07-26); 1С-пакет готов и ждёт. |
+| Track B волна 1 (P-01,02,03,05,06,19) | В РАБОТЕ — пять тикетов готовы (`tasks/trackB_wave1_bitrix.md:11,41,90`, `tasks/trackB_wave1_1c.md:22,58`); rev4 BITRIX-B1-06 (узкий AC) и rev2 BITRIX-B1-03 (`event_id` не существует → ключ `CRM_Deal_ID + event`, ADR-015) применены. Шестой тикет — P-19, готовится по брифу F4-02 rev3: эскалация Executor'а закрыта ADR-019 (алгоритм контрольной цифры; пример `…-8` невалиден) и ADR-020 (закрытый перечень 11 позиций перепривязки), HOLD по этим пунктам снят. Отправка: оба пакета синхронно, одним куском (решение Owner 2026-07-26); 1С-пакет готов и ждёт. Отправки не было, дата не зафиксирована (подтверждено Owner 2026-07-28). |
 
 ## Ключевые якоря
 - Канонический снапшот корпуса D1–D6: определяется хэшами в l3-external/MANIFEST.md (26 md-фрагментов); для цитат используется SHA текущей сессии
