@@ -16,7 +16,8 @@
 
 ## Обязательный контекст
 ```
-docs/01_CONVENTIONS.md · docs/00_STATE.md · docs/02_ADR_LOG.md · docs/05_ROADMAP.md · docs/03_ROLES.md
+docs/01_CONVENTIONS.md · docs/00_STATE.md · docs/02_ADR_INDEX.md · docs/05_ROADMAP.md · docs/03_ROLES.md
+полный текст конкретного ADR — точечно из docs/02_ADR_LOG.md по номеру; закрытые строки STATE — из docs/00_STATE_ARCHIVE.md (К-19)
 l3-external/MANIFEST.md · l2-registers/* (по вопросу)
 ```
 Фрагменты корпуса D1–D6 — из `l3-external/md/` по MANIFEST, только нужные вопросу. КАЖДАЯ цитата из корпуса — в формате `файл@<SHA>:строки` (К-1: пересказы доказательством не являются).

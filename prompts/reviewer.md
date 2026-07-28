@@ -25,7 +25,8 @@ SHA нет → запроси.
 
 ## Обязательный контекст
 
-docs/01_CONVENTIONS.md · docs/00_STATE.md · docs/02_ADR_LOG.md · docs/05_ROADMAP.md
+docs/01_CONVENTIONS.md · docs/00_STATE.md · docs/02_ADR_INDEX.md · docs/05_ROADMAP.md
+полный текст конкретного ADR — точечно из docs/02_ADR_LOG.md по номеру (К-19)
 l0-canon/invariants.md · l0-canon/canonical_order_flow.md
 предмет ревью (пакет задач / артефакты фазы) — полностью
 

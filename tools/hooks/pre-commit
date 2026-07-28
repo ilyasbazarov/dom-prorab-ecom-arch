@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# FILE: tools/hooks/pre-commit — механические инварианты коммита (ADR-028)
+# Базис: ilyasbazarov/holika@c229bb7 tools/hooks/pre-commit (после фикса ADR-074). Адаптация под структуру dom-prorab-ecom-arch.
+# Установка: ln -s ../../tools/hooks/pre-commit .git/hooks/pre-commit
+# Обход только по явному апруву Owner: git commit --no-verify (фиксируется в session-блоке).
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+fail() { echo "PRE-COMMIT FAIL: $1" >&2; exit 1; }
+staged() { git diff --cached --name-only --diff-filter=ACM; }
+
+# Класс гомоглифов задан альтернацией целых символов, не bracket-выражением:
+# под байтовой семантикой (локаль C) bracket-выражение распадается на байты (урок holika ADR-074).
+CYR='(А|В|С|Е|К|М|Н|О|Р|Т|Х)'
+
+# 1. К-20: первая строка нумерованного дока и CLAUDE.md = `# FILE: <путь>`
+for f in $(staged | grep -E '^(docs/[0-9]{2}_[^/]+\.md|CLAUDE\.md)$' || true); do
+  blob=$(git show ":$f")          # без пайпа в head: SIGPIPE на файле больше буфера (holika ADR-074)
+  first=${blob%%$'\n'*}
+  [ "$first" = "# FILE: $f" ] || fail "$f: первая строка '$first' не равна '# FILE: $f' (К-20)"
+done
+
+# 2. Кириллические гомоглифы внутри латинских ID (ADR-/P-/OQ-/BQ-/CQ-/F<n>-/B<n>-)
+added=$(git diff --cached -U0 | grep -E '^\+' | grep -vE '^\+\+\+ ' || true)
+hits=$(printf '%s\n' "$added" | grep -nE "(ADR|OQ|BQ|CQ|P|F[0-9]|B[0-9])[-–][0-9]*${CYR}|${CYR}(DR-|Q-[0-9])" || true)
+if [ -n "$hits" ]; then
+  printf '%s\n' "$hits" >&2       # печатать совпавшие строки, не только вердикт (holika ADR-044)
+  fail "кириллица внутри идентификатора"
+fi
+
+# 3. К-19: новый ADR в 02_ADR_LOG => строка в 02_ADR_INDEX тем же коммитом
+if staged | grep -q '^docs/02_ADR_LOG.md$'; then
+  new_adr=$(git diff --cached -U0 -- docs/02_ADR_LOG.md | grep -oE '^\+## (ADR-[0-9]+)' | grep -oE 'ADR-[0-9]+' || true)
+  for a in $new_adr; do
+    staged | grep -q '^docs/02_ADR_INDEX.md$' || fail "$a добавлен в 02_ADR_LOG, но 02_ADR_INDEX.md не в коммите (К-19)"
+    git show :docs/02_ADR_INDEX.md | grep -qF "$a" || fail "$a отсутствует в 02_ADR_INDEX.md (К-19)"
+  done
+fi
+
+# 4. Append-only ADR-лога на staged-диффе; исключение — строки статуса (реализует ADR-016)
+d4=$(git diff --cached -U0 -- docs/02_ADR_LOG.md | grep -E '^-' | grep -vE '^--- ' || true)
+if [ -n "$d4" ]; then
+  viol=$(printf '%s\n' "$d4" | grep -vE '^-\*\*Дата:\*\*.*\*\*Статус:\*\*|^-\*\*Статус:\*\*' || true)
+  if [ -n "$viol" ]; then
+    printf '%s\n' "$viol" >&2
+    fail "удалены/изменены строки ADR-лога кроме строк статуса (append-only; ADR-016)"
+  fi
+fi
+
+# 5. К-19: ID (OQ/BQ/CQ) исчез из 00_STATE => 00_STATE_ARCHIVE в том же коммите.
+# Сравниваются МНОЖЕСТВА ID удалённых и добавленных строк: переформулировка строки
+# (ID есть и там, и там) не срабатывает (урок holika ADR-074: иначе ложный позитив на каждой правке).
+d5=$(git diff --cached -U0 -- docs/00_STATE.md || true)
+gone_ids=$(comm -23 \
+  <(printf '%s\n' "$d5" | grep -E '^-' | grep -vE '^--- ' | grep -oE '(OQ|BQ|CQ)-[0-9]+' | sort -u) \
+  <(printf '%s\n' "$d5" | grep -E '^\+' | grep -vE '^\+\+\+ ' | grep -oE '(OQ|BQ|CQ)-[0-9]+' | sort -u) || true)
+if [ -n "$gone_ids" ]; then
+  staged | grep -q '^docs/00_STATE_ARCHIVE.md$' \
+    || fail "из 00_STATE исчезли ID ($(printf '%s' "$gone_ids" | tr '\n' ' ')), 00_STATE_ARCHIVE.md не в коммите (К-19)"
+fi
+
+# 6. Правка 00_STATE => обновлена строка шапки **Версия:** … **updated:** …
+if staged | grep -q '^docs/00_STATE.md$'; then
+  n=$(git diff --cached -- docs/00_STATE.md | grep -cE '^\+\*\*Версия:' || true)
+  [ "$n" -gt 0 ] || fail "00_STATE.md правится без обновления строки **Версия/updated** в шапке"
+fi
+
+# 7. К-3: l3-external/raw immutable; санкционированное исключение — ALLOW_RAW_CHANGE=1 (К-12)
+if [ "${ALLOW_RAW_CHANGE:-0}" != "1" ]; then
+  if git diff --cached --name-only -- l3-external/raw/ | grep -q .; then
+    fail "l3-external/raw в коммите (immutable, К-3; санкционировано => ALLOW_RAW_CHANGE=1)"
+  fi
+fi
+
+# 8. Полный гейт tools/verify.sh (RED = стоп). PRECOMMIT_SKIP_VERIFY=1 — только для selftest.sh.
+if [ -f tools/verify.sh ] && [ "${PRECOMMIT_SKIP_VERIFY:-0}" != "1" ]; then
+  vout=$(ALLOW_RAW_CHANGE="${ALLOW_RAW_CHANGE:-0}" bash tools/verify.sh 2>&1) \
+    || { printf '%s\n' "$vout" >&2; fail "tools/verify.sh RED"; }
+fi
+
+echo "pre-commit: инварианты К-19/К-20/ADR-016/К-3 пройдены, verify GREEN"

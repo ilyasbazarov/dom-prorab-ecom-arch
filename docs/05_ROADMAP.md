@@ -1,3 +1,5 @@
+# FILE: docs/05_ROADMAP.md
+
 # 05_ROADMAP — Фазы и треки
 
 **Статус:** LIVING. Детально расписан только текущий фронт; будущие фазы — заголовки+scope (anti-improvisation).

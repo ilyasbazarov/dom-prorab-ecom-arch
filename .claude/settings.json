@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Read", "Grep", "Glob", "Edit", "Write",
+      "Bash(git status:*)", "Bash(git diff:*)", "Bash(git log:*)", "Bash(git rev-parse:*)",
+      "Bash(git show:*)", "Bash(git add:*)", "Bash(git commit:*)",
+      "Bash(date:*)", "Bash(cat:*)", "Bash(ls:*)", "Bash(wc:*)",
+      "Bash(sha256sum:*)", "Bash(shasum:*)",
+      "Bash(bash tools/verify.sh*)", "Bash(bash tools/hooks/selftest.sh*)",
+      "Bash(ln -s ../../tools/hooks/pre-commit*)"
+    ],
+    "ask": [
+      "Bash(git push:*)", "Bash(git pull:*)"
+    ],
+    "deny": [
+      "Bash(git push --force*)", "Bash(git reset --hard*)", "Bash(git rebase:*)",
+      "Bash(git commit --no-verify*)", "Bash(rm -rf:*)"
+    ]
+  }
+}
