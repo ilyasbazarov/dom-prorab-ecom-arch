@@ -31,9 +31,15 @@ ADR поднимается точечно из 02_ADR_LOG.md по номеру. 
 | ADR-021 | [BUSINESS] Пакет решений Business-сессии по BQ-01…BQ-07 | accepted |  |
 | ADR-022 | [PROCESS] Жизненный цикл устранения P-xx отделён от статуса доказанности | accepted |  |
 | ADR-023 | [PROCESS] Пространства ID открытых вопросов разведены; выход F4-01 нумеруется BQ-08+ | accepted |  |
-| ADR-024 | [PROCESS] Ревью целостности проводится по событию; вводится роль Reviewer | accepted |  |
+| ADR-024 | [PROCESS] Ревью целостности проводится по событию; вводится роль Reviewer | accepted | третья точка — ADR-033 |
 | ADR-025 | [PROCESS] Пакет правок метода по рефлексии Owner — язык, стоп-правило, плейсхолдеры, блок арх-ревью, литеральные URL | accepted |  |
 | ADR-026 | [ARCH] Условие триггера шаблона #15 переносится в волну 1 (внутрь BITRIX-B1-07) | accepted |  |
 | ADR-027 | [PROCESS] Контекстная диета: индекс ADR, архив STATE, FILE-строка | accepted |  |
 | ADR-028 | [PROCESS] Pre-commit хук с самотестом; гейт целостности до коммита | accepted |  |
-| ADR-029 | [PROCESS] Пилот Claude Code: скаффолд, мандат, локальный доступ, классификация брифов | accepted |  |
+| ADR-029 | [PROCESS] Пилот Claude Code: скаффолд, мандат, локальный доступ, классификация брифов | accepted | §5 переопределён ADR-034 |
+| ADR-030 | [PROCESS] Разбор ревью метода: вердикты, волны внедрения, решения развилок | accepted | C-2 отклонён с порогом возврата |
+| ADR-031 | [PROCESS] Журнал сессий (sessions/JOURNAL.md, секция JOURNAL_ROW) | accepted |  |
+| ADR-032 | [PROCESS] Вывод=файл (reference/) и правило аномалий | accepted | К-22, К-23 |
+| ADR-033 | [PROCESS] Протокол снятия гейта; третья точка Reviewer | accepted | дополняет ADR-024; К-24 |
+| ADR-034 | [PROCESS] Success-критерий CC-пилота: присутствие Owner | accepted | переопределяет ADR-029 §5 |
+| ADR-035 | [PROCESS] План метод-волн: docs/08_METHOD_PLAN.md | accepted | трекер, не источник решений |
