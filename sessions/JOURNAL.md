@@ -7,3 +7,4 @@
 |---|---|---|---|---|---|---|---|---|---|---|
 | 2026-07-29 | arch_method_review | Architect A | разбор METHOD_OPTIMIZATION_BRIEF | разбор + развилки + ADR-030…035 + план | — | 3 | нет | не требуется (ADR-033 §2 не ретроактивен) | — | Fable |
 | 2026-07-30 | arch_portable_method_recovery | Architect A | восстановление решений portable_method после деградации чата; метод-волны M в трекер | 4 ADR (proposed) + 7 конвенций (proposed) + §Мандат + строки M | — | 1 | нет | требуется до accepted (ADR-033 §2, первый прогон третьей точки) | — | Fable |
+| 2026-07-30 | arch_runbook_standup | Architect A+B | стенд-ап STATE + ранбук rev1 | ADR + новый док + 5 патчей | — | 1 | нет | не требуется (Reviewer по пакету ADR-036…040) | промт роли не приложен, поднят по raw-URL | Opus |

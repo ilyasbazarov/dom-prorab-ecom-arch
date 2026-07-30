@@ -10,9 +10,9 @@ test -f docs/02_ADR_LOG.md || { echo "FAIL: запускай из корня dom
 # 1. Обязательные файлы
 for f in README.md docs/00_STATE.md docs/01_CONVENTIONS.md docs/02_ADR_LOG.md docs/03_ROLES.md \
          docs/04_SESSION_PROTOCOL.md docs/05_ROADMAP.md docs/06_BRIEF_TEMPLATE.md \
-         docs/02_ADR_INDEX.md docs/00_STATE_ARCHIVE.md docs/08_METHOD_PLAN.md CLAUDE.md .claude/settings.json \
+         docs/02_ADR_INDEX.md docs/00_STATE_ARCHIVE.md docs/08_METHOD_PLAN.md docs/09_RUNBOOK.md CLAUDE.md .claude/settings.json \
          tools/hooks/pre-commit tools/hooks/selftest.sh \
-         prompts/business.md prompts/architect.md prompts/executor.md prompts/applier.md \
+         prompts/business.md prompts/architect.md prompts/executor.md prompts/applier.md prompts/reviewer.md \
          l3-external/MANIFEST.md l2-registers/problem_register.md l2-registers/contractor_questions.md \
          l2-registers/open_questions.md l2-registers/assumptions.md tools/verify.sh; do
   [ -f "$f" ] || err "отсутствует $f"

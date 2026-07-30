@@ -15,6 +15,7 @@
 | Architect | Opus | `prompts/architect.md` | ADR, целостность, ревью, роудмап + выпуск брифов |
 | Executor | Sonnet | `prompts/executor.md` | исполнение одного брифа |
 | Applier | Sonnet | `prompts/applier.md` | session-блок → один commit-скрипт |
+| Reviewer | Fable | `prompts/reviewer.md` | ревью целостности в трёх точках: пакет подрядчику, DONE фазы, PROCESS-ADR |
 | Owner | человек | — | запуск сессий, скрипты, коммиты, verify, апрувы |
 
 ## Как запустить сессию (quickstart)
@@ -22,6 +23,8 @@
 2. Открой свежий чат нужной модели. Вставь файл промта роли целиком.
 3. Добавь строку `SHA сессии: <хэш>` и вопрос/задачу (launch-строка — в конце каждого промта).
 4. В конце сессии забери session-блок → скорми Applier'у → выполни выданный bash → `bash tools/verify.sh` → новый SHA в следующую сессию.
+
+**Пусковые сообщения под каждую роль, порядок очерёдности и раздел «если пошло не так» — `docs/09_RUNBOOK.md`.**
 
 ## Рабочий цикл
 ```
@@ -52,6 +55,8 @@ docs/03_ROLES.md            — роли и биндинг моделей
 docs/04_SESSION_PROTOCOL.md — жизненный цикл сессий, session-блок
 docs/05_ROADMAP.md          — фазы Track A + Track B
 docs/06_BRIEF_TEMPLATE.md   — шаблон брифа
+docs/08_METHOD_PLAN.md      — трекер метод-волн: гейты, пункты, статусы
+docs/09_RUNBOOK.md          — как запускать сессии (документ Owner)
 docs/07_OPERATIONAL_LESSONS.md — известные грабли инструментария (shell/apply-скрипты)
 prompts/{business,architect,executor,applier}.md
 briefs/<ID>.md              — брифы задач
