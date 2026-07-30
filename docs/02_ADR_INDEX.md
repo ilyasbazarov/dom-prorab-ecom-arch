@@ -43,3 +43,7 @@ ADR поднимается точечно из 02_ADR_LOG.md по номеру. 
 | ADR-033 | [PROCESS] Протокол снятия гейта; третья точка Reviewer | accepted | дополняет ADR-024; К-24 |
 | ADR-034 | [PROCESS] Success-критерий CC-пилота: присутствие Owner | accepted | переопределяет ADR-029 §5 |
 | ADR-035 | [PROCESS] План метод-волн: docs/08_METHOD_PLAN.md | accepted | трекер, не источник решений |
+| ADR-036 | [PROCESS] Пакет решений разбора portable_method (класс B, оракул приёмки, SLA развилок, датировка, роли Owner) | proposed |  |
+| ADR-037 | [PROCESS] Параллельное исполнение задач: условие, порядок, запреты | proposed |  |
+| ADR-038 | [PROCESS] Волна M1: состав, приоритет, нумерация волн M | proposed |  |
+| ADR-039 | [PROCESS] Персистенция внешних методических источников | proposed |  |
