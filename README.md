@@ -48,24 +48,31 @@ Open Questions / Роудмап «текущий фокус»
 
 ## Карта репо
 ```
-docs/00_STATE.md            — статус, текущий фокус, блокеры (LIVING)
+CLAUDE.md                   — законы Claude Code-сессий (ADR-029)
+docs/00_STATE.md            — стенд-ап, подробности для модели, статус фаз, блокеры (LIVING)
+docs/00_STATE_ARCHIVE.md    — закрытые строки STATE (К-19)
 docs/01_CONVENTIONS.md      — конвенции К-x
+docs/02_ADR_INDEX.md        — оглавление журнала решений, обязательный контекст ролей (К-19)
 docs/02_ADR_LOG.md          — ADR append-only
 docs/03_ROLES.md            — роли и биндинг моделей
 docs/04_SESSION_PROTOCOL.md — жизненный цикл сессий, session-блок
 docs/05_ROADMAP.md          — фазы Track A + Track B
 docs/06_BRIEF_TEMPLATE.md   — шаблон брифа
+docs/07_OPERATIONAL_LESSONS.md — известные грабли инструментария (shell/apply-скрипты)
 docs/08_METHOD_PLAN.md      — трекер метод-волн: гейты, пункты, статусы
 docs/09_RUNBOOK.md          — как запускать сессии (документ Owner)
-docs/07_OPERATIONAL_LESSONS.md — известные грабли инструментария (shell/apply-скрипты)
-prompts/{business,architect,executor,applier}.md
+prompts/{business,architect,executor,applier,reviewer}.md
 briefs/<ID>.md              — брифы задач
 tasks/<имя>.md              — задачи, уходящие подрядчикам (самодостаточны, с трассировкой)
 sessions/<дата>_<id>.md     — логи сессий
+sessions/JOURNAL.md         — журнал сессий, одна строка на сессию (ADR-031)
+reference/                  — снимки внешних источников и разборы, не правятся (К-33)
 l0-canon/                   — L0-канон: invariants · domain_model · canonical_order_flow (ADR-011)
 l2-registers/               — problem / contractor_questions / open_questions / assumptions
 l3-external/                — MANIFEST.md · raw/*.docx · md/<26 фрагментов>
 tools/verify.sh             — детерминированный гейт целостности
+tools/hooks/                — pre-commit + selftest.sh (ADR-028)
+.claude/                    — settings.json (права) и agents/ (роли Claude Code)
 apply_*.sh (корень)         — разовые apply-скрипты; удаляются после verify GREEN
 ```
 Связанный репо: `dom-propraba-strategy` — Master KB (по SHA-ссылке; твёрдые секции [1],[2],[9], остальное по К-5).
