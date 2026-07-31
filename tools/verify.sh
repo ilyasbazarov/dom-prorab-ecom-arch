@@ -56,12 +56,16 @@ if ids != sorted(ids): print("FAIL: номера ADR не монотонны (ap
 print(f"  ok: ADR-лог — {len(ids)} записей (ADR-{min(ids):03d}…ADR-{max(ids):03d}), монотонно, без дублей")
 PY
 
-# 4. ADR append-only против предыдущего коммита
+# 4. ADR append-only против предыдущего коммита.
+# Исключение — строки статуса (ADR-016): апрув proposed → accepted правит одну строку записи.
+# Реализация зеркалит tools/hooks/pre-commit п.4; печать совпавших строк — К-28.
 if git rev-parse HEAD~1 >/dev/null 2>&1; then
-  deleted=$(git diff HEAD~1 HEAD -- docs/02_ADR_LOG.md | grep -cE '^-[^-]' || true)
-  if [ "${deleted:-0}" -gt 0 ]; then
-    err "ADR-лог: $deleted удалённых/изменённых строк против HEAD~1 (append-only нарушен)"
-  else ok "ADR append-only (HEAD~1 → HEAD)"; fi
+  viol=$(git diff HEAD~1 HEAD -- docs/02_ADR_LOG.md | grep -E '^-[^-]' \
+         | grep -vE '^-\*\*Дата:\*\*.*\*\*Статус:\*\*|^-\*\*Статус:\*\*' || true)
+  if [ -n "$viol" ]; then
+    printf '%s\n' "$viol"
+    err "ADR-лог: удалены/изменены строки кроме строк статуса против HEAD~1 (append-only; ADR-016)"
+  else ok "ADR append-only (HEAD~1 → HEAD; правки строк статуса разрешены ADR-016)"; fi
 fi
 
 # 5. l3-external/raw неизменен против предыдущего коммита (immutable, К-3)
