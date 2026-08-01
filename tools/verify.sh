@@ -60,7 +60,7 @@ PY
 # Исключение — строки статуса (ADR-016): апрув proposed → accepted правит одну строку записи.
 # Реализация зеркалит tools/hooks/pre-commit п.4; печать совпавших строк — К-28.
 if git rev-parse HEAD~1 >/dev/null 2>&1; then
-  viol=$(git diff HEAD~1 HEAD -- docs/02_ADR_LOG.md | grep -E '^-[^-]' \
+  viol=$(git diff HEAD~1 HEAD -- docs/02_ADR_LOG.md | grep -E '^-' | grep -vE '^--- ' \
          | grep -vE '^-\*\*Дата:\*\*.*\*\*Статус:\*\*|^-\*\*Статус:\*\*' || true)
   if [ -n "$viol" ]; then
     printf '%s\n' "$viol"
