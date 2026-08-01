@@ -10,3 +10,12 @@
 
 - [Architect] OQ-04 — RESOLVED (ADR-017): контур 1С→CRM = три канала со своими URL (статус-маппинг; `oos_at_picking` IC-PR-03; `check_printed` IC-CK-05). Состав статус-канала: три подтверждённых события + `order_partial` условное до ответа CQ-02.
 - [Business] BQ-01…BQ-07 — RESOLVED (ADR-021), сессия 2026-07-27; детали — l2-registers/open_questions.md.
+
+## Перенесено сессией arch_f5_02_returns_1 (2026-08-02) из docs/00_STATE.md @ a655a87 — дословно (стенд-ап заменён по STATE_PATCH, оба ID остаются открытыми и присутствуют в теле STATE в других местах — §Открытые вопросы, §Подробности для модели)
+
+- Прежняя CQ-05 (Bitrix-подрядчик: выгрузить `crm.dealcategory.stage.list` с боевого портала —
+  `l2-registers/contractor_questions.md`) остаётся DRAFT, не отправлена.
+- Решение по трём находкам «требует ADR»; решение — отправлять ли CQ-06 List.kg
+  и черновики задач A/B/C в волну 2 Track B. Контрольная точка Бакай Банка 2026-08-05 (OQ-02) —
+  платёжная механика предоплаты (pre-auth vs charge), API-refund, SLA-цифра возврата, DEFER до
+  документации Бакай Банка (CON-11).
