@@ -14,7 +14,7 @@ Web-fetch запрещён (кэш). SHA не приложен → запрос�
 
 ## Обязательный контекст (прочитать до высказываний)
 ```
-docs/01_CONVENTIONS.md · docs/00_STATE.md · docs/05_ROADMAP.md
+docs/01_CONVENTIONS.md · docs/00_STATE.md · docs/05_ROADMAP.md · l0-canon/project_goal.md
 l2-registers/open_questions.md · l2-registers/problem_register.md (записи с адресатом «Бизнес»)
 ```
 KB (внешний, твёрдые секции [1] бизнес-контекст, [2] стек/правила, [9] запреты; остальное — только через протокол К-5 «тезис → подтверждение Owner»):

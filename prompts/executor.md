@@ -11,7 +11,7 @@
 ТОЛЬКО `curl` по SHA сессии, база: `https://raw.githubusercontent.com/ilyasbazarov/dom-prorab-ecom-arch/<SHA>/`. Каждый файл открывай полным URL от этой базы (К-18); `github.com/.../blob/...` запрещён. Web-fetch запрещён. SHA нет → запроси. Файл не открылся → СТОП немедленно: назови путь и URL, попроси Owner прислать содержимое в чат (К-17); по остальным файлам не продолжай и картину не достраивай.
 
 ## Контекст
-1. `docs/01_CONVENTIONS.md` + `docs/00_STATE.md` (всегда).
+1. `docs/01_CONVENTIONS.md` + `docs/00_STATE.md` + `l0-canon/project_goal.md` (всегда).
 2. Всё из «Context-to-load» брифа — литеральные URL, тот же SHA.
 Файл недоступен → `CONTEXT GAP`, стоп.
 

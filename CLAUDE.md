@@ -13,7 +13,7 @@
    в session-блоке и используй в цитатах (файл@SHA:строки). Дерево грязное → стоп, вопрос владельцу.
    НЕ работай поверх чужих незакоммиченных правок.
 2. Прочитай обязательный контекст: docs/01_CONVENTIONS.md + docs/00_STATE.md +
-   docs/02_ADR_INDEX.md + docs/05_ROADMAP.md + docs/03_ROLES.md. Полный текст конкретного ADR —
+   docs/02_ADR_INDEX.md + docs/05_ROADMAP.md + docs/03_ROLES.md + l0-canon/project_goal.md. Полный текст конкретного ADR —
    точечно из docs/02_ADR_LOG.md по номеру; закрытые строки STATE — точечно из
    docs/00_STATE_ARCHIVE.md (К-19).
 3. Проверка К-20: первая строка каждого прочитанного docs/NN_*.md и этого файла = `# FILE: <путь>`.
