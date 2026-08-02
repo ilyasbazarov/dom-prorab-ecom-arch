@@ -106,7 +106,7 @@ HTTP 200 = строго факт проведения + резерв≠0 (DEC-33
 `UF_1C_ORDER_NUMBER`. [INV-4, ADR-012]
 
 ## §7 Gated-слоты (не наполнять до снятия гейта)
-- **OQ-02 (DEFER, Бакай Банк, чек-поинт 2026-08-05):** платёжная механика (pre-auth vs charge),
+- **OQ-02 (В РАБОТЕ, Оптима Банк / процессинг Alatau City Bank; DEFER и чек-поинт 2026-08-05 сняты ADR-062):** платёжная механика (pre-auth vs charge),
   refund API, SLA-цифра возврата, Add-on Payment. Ветки partial-refund/rejected-refund в T1/T5
   ссылаются на политику `business_canon.md`, механика — после OQ-02. [d6_t03@65f2bba:170; open_questions OQ-02]
 - **ЛК-трекинг — Phase 2** (MVP: WA/SMS). [d6_t04@65f2bba:146,175]

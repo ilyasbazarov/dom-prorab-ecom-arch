@@ -14,6 +14,15 @@
 | D4 | Доработки в Битрикс (CRM + CMS) | 1TI5nh6IXl6RsIAb69Y-gnbf6jzD2yB3wclectTvBuwc | raw/d4_*.docx | 7 |
 | D5 | Доработки в 1С | 1MXnpaZuMdbna6jc2nSwhFkmqWCkubP2nnu-HHh-pk8E | raw/d5_*.docx | 6 |
 | D6 | Оформление заказа (User Story Map) | 1KOxOJ1y8v977bT9Sm_iQ2DjgO9S6ZvH3FAge5aaTKS4 | raw/d6_*.docx | 6 |
+| D7 | Эквайринг: API-документация процессинга (Alatau City Bank, эквайер — Оптима Банк) | — | raw/AlatauCityBank_ecom.pdf | — |
+
+D7 — отдельный провенанс. Снапшот 2026-08-02Z, источник — PDF от банка, не Google Docs,
+поэтому схема конвертации D1–D6 (pandoc docx→gfm, разрез по вкладкам) к нему не применяется.
+Внесён Owner коммитом d796340b. Файл raw/AlatauCityBank_ecom.pdf: 1 291 613 байт,
+sha256 первые 16 91e4b56fccac0cba, 27 страниц, генератор Microsoft Word 2019 (текстовый
+слой присутствует). Md-фрагмент, отчёт извлечения и строка в таблице «Фрагменты» —
+задача F4-05. До её исполнения единицы цитирования у D7 нет: цитаты на D7 невозможны (К-1),
+ссылка на PDF доказательством не является.
 
 ## Фрагменты
 
