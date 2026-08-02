@@ -70,13 +70,22 @@ for LOC in C "$MB_LOCALE"; do
   new_repo; printf 'просто заметка без FILE-строки\n' > "$R/notes.md"
   run_case pass "файл вне scope проверки FILE-строки" ""
 
-  new_repo; printf 'упоминание АDR-002 с кириллической А\n' > "$R/notes.md"
+  # Двойники во всех кейсах ниже записаны hex-эскейпами: \xd0\x90 = А, \xd0\x92 = В,
+  # \xd0\x9c = М, \xd0\x9e = О. Литеральная буква в исходнике самотеста попадает под
+  # проверку 2 этого же хука на коммите, который её вносит, и коммит падает. Не заменять.
+  new_repo; printf 'упоминание \xd0\x90DR-002 с кириллической буквой\n' > "$R/notes.md"
   run_case fail "гомоглиф: кириллица в ADR-ID" ""
 
-  new_repo; printf 'упоминание ВQ-01 с кириллической В\n' > "$R/notes.md"
+  new_repo; printf 'упоминание \xd0\x92Q-01 с кириллической буквой\n' > "$R/notes.md"
   run_case fail "гомоглиф: кириллица в BQ-ID" ""
 
-  new_repo; printf 'чистые ID: ADR-002, BQ-01, P-07, F5-01\n' > "$R/notes.md"
+  new_repo; printf '\xd0\x9c1-01 в начале идентификатора\n' > "$R/notes.md"
+  run_case fail "гомоглиф: кириллица в начале ID волны M" ""
+
+  new_repo; printf 'M1-\xd0\x9e1 внутри идентификатора\n' > "$R/notes.md"
+  run_case fail "гомоглиф: кириллица внутри ID волны M" ""
+
+  new_repo; printf 'чистые ID: ADR-002, BQ-01, P-07, F5-01, M1-01, M2-14\n' > "$R/notes.md"
   run_case pass "чистые латинские ID не срабатывают" ""
 
   new_repo

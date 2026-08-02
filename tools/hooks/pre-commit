@@ -19,9 +19,9 @@ for f in $(staged | grep -E '^(docs/[0-9]{2}_[^/]+\.md|CLAUDE\.md)$' || true); d
   [ "$first" = "# FILE: $f" ] || fail "$f: первая строка '$first' не равна '# FILE: $f' (К-20)"
 done
 
-# 2. Кириллические гомоглифы внутри латинских ID (ADR-/P-/OQ-/BQ-/CQ-/F<n>-/B<n>-)
+# 2. Кириллические гомоглифы внутри латинских ID (ADR-/P-/OQ-/BQ-/CQ-/F<n>-/B<n>-/M<n>-)
 added=$(git diff --cached -U0 | grep -E '^\+' | grep -vE '^\+\+\+ ' || true)
-hits=$(printf '%s\n' "$added" | grep -nE "(ADR|OQ|BQ|CQ|P|F[0-9]|B[0-9])[-–][0-9]*${CYR}|${CYR}(DR-|Q-[0-9])" || true)
+hits=$(printf '%s\n' "$added" | grep -nE "(ADR|OQ|BQ|CQ|P|F[0-9]|B[0-9]|M[0-9])[-–][0-9]*${CYR}|${CYR}(DR-|Q-[0-9]|[0-9]-[0-9])" || true)
 if [ -n "$hits" ]; then
   printf '%s\n' "$hits" >&2       # печатать совпавшие строки, не только вердикт (holika ADR-044)
   fail "кириллица внутри идентификатора"

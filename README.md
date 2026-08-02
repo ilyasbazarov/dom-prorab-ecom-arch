@@ -14,7 +14,7 @@
 | Business (CEO) | Fable | `prompts/business.md` | бизнес-решения: Order Flow для клиента и денег, политика, приоритеты |
 | Architect | Opus | `prompts/architect.md` | ADR, целостность, ревью, роудмап + выпуск брифов |
 | Executor | Sonnet | `prompts/executor.md` | исполнение одного брифа |
-| Applier | Sonnet | `prompts/applier.md` | session-блок → один commit-скрипт |
+| Applier | Sonnet | `prompts/applier.md` | session-блок → применение: чатовый путь — один commit-скрипт, путь Claude Code — прямые правки и локальный коммит (ADR-043 §2) |
 | Reviewer | Fable | `prompts/reviewer.md` | ревью целостности в трёх точках: пакет подрядчику, DONE фазы, PROCESS-ADR |
 | Owner | человек | — | запуск сессий, скрипты, коммиты, verify, апрувы |
 
