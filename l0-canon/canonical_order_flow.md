@@ -109,5 +109,6 @@ HTTP 200 = строго факт проведения + резерв≠0 (DEC-33
 - **OQ-02 (В РАБОТЕ, Оптима Банк / процессинг Alatau City Bank; DEFER и чек-поинт 2026-08-05 сняты ADR-062):** платёжная механика (pre-auth vs charge),
   refund API, SLA-цифра возврата, Add-on Payment. Ветки partial-refund/rejected-refund в T1/T5
   ссылаются на политику `business_canon.md`, механика — после OQ-02. [d6_t03@65f2bba:170; open_questions OQ-02]
+- **Платёжные сценарии (шесть сценариев движения денег, две ветки дизайна, слот срока зачисления):** `l0-canon/payment_scenarios.md` [ADR-075]. Gated-слот OQ-02 выше настоящей строкой НЕ снимается — его снимает задача F4-08.
 - **ЛК-трекинг — Phase 2** (MVP: WA/SMS). [d6_t04@65f2bba:146,175]
 - **business_canon.md** (политики отмен/возвратов/коммуникации/SLA) — владелец Business, Фаза 4.
