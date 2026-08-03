@@ -18,3 +18,6 @@
 | CON-06 (стоимость доставки не в предоплату) | d6_t03@65f2bba:88,96 | RATIFIED→canon | ADR-010; canonical_order_flow §2 |
 | DEC-33 (HTTP 200 = проведение + резерв≠0) | d1_t03@65f2bba:91 | RATIFIED→invariant | canonical_order_flow §4/T1; обработка partial/rejected — P-01/BITRIX-B1-01 |
 | COM-WA-02 (идентификатор заказа = UF_1C_ORDER_NUMBER; при пустом → CRM_Deal_ID с префиксом «Заявка #») | d4_t07@6ddf3d7:21 (логика #15 — :536-540, :548) | SUPERSEDED→ADR-012 / ADR-020 | P-19; ветка удаляется, `{{1}} = UF_CLIENT_ORDER_NO` безусловно (ADR-020 п.3); подстановка CRM_Deal_ID клиенту нарушает INV-3 |
+| DEC-47 (срок возврата 14 дней от «Успешно реализовано») | d6_t06@f08dfb3:25 | RATIFIED→canon | ADR-077 п.9; business_canon §9 |
+| DEC-48 (is_returnable = 1 для всех позиций) | d6_t06@f08dfb3:25 | RATIFIED→canon | ADR-077 п.9; business_canon §9 |
+| CON-15 (проверки возврата предупредительные, не блокирующие) | d6_t06@f08dfb3:25,33-34,70 | RATIFIED→canon | ADR-077 п.9; business_canon §9 |
