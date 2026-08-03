@@ -33,10 +33,14 @@ EOF
 ## ADR-001 — базовое решение
 **Дата:** 2026-01-01. **Статус:** proposed
 Текст решения.
+- ADR-099 [ARCH]: запись списочной формой
+  Текст записи.
+  Статус: proposed
 EOF
   cat > "$R/docs/02_ADR_INDEX.md" <<'EOF'
 # FILE: docs/02_ADR_INDEX.md
 | ADR-001 | базовое решение | proposed |
+| ADR-099 | запись списочной формой | proposed |
 EOF
   printf '%s\n' '# FILE: docs/00_STATE_ARCHIVE.md' > "$R/docs/00_STATE_ARCHIVE.md"
   printf 'raw-заглушка\n' > "$R/l3-external/raw/seed.docx.txt"
@@ -107,6 +111,18 @@ for LOC in C "$MB_LOCALE"; do
 
   new_repo; sed -i.bak 's/\*\*Статус:\*\* proposed/**Статус:** accepted/' "$R/docs/02_ADR_LOG.md"; rm -f "$R/docs/02_ADR_LOG.md.bak"
   run_case pass "правка строки статуса ADR разрешена (ADR-016)" ""
+
+  new_repo; sed -i.bak 's/^  Статус: proposed$/  Статус: accepted/' "$R/docs/02_ADR_LOG.md"; rm -f "$R/docs/02_ADR_LOG.md.bak"
+  run_case pass "правка строки статуса списочной записи разрешена (ADR-016, ADR-073 §2)" ""
+
+  new_repo
+  printf '%s\n' '- ADR-002 [ARCH]: списочная запись без индекса' '  Статус: proposed' >> "$R/docs/02_ADR_LOG.md"
+  run_case fail "append ADR списочной формой без строки индекса (ADR-073 §1)" ""
+
+  new_repo
+  printf '%s\n' '- ADR-002 [ARCH]: списочная запись с индексом' '  Статус: proposed' >> "$R/docs/02_ADR_LOG.md"
+  printf '%s\n' '| ADR-002 | списочная запись | proposed |' >> "$R/docs/02_ADR_INDEX.md"
+  run_case pass "append ADR списочной формой вместе со строкой индекса (ADR-073 §1)" ""
 
   new_repo
   sed -i.bak '/OQ-77/d' "$R/docs/00_STATE.md"; rm -f "$R/docs/00_STATE.md.bak"

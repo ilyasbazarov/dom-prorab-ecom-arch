@@ -29,7 +29,8 @@ fi
 
 # 3. К-19: новый ADR в 02_ADR_LOG => строка в 02_ADR_INDEX тем же коммитом
 if staged | grep -q '^docs/02_ADR_LOG.md$'; then
-  new_adr=$(git diff --cached -U0 -- docs/02_ADR_LOG.md | grep -oE '^\+## (ADR-[0-9]+)' | grep -oE 'ADR-[0-9]+' || true)
+  # ADR-073 §1: обе формы записи — заголовочная и списочная с тегом в квадратных скобках
+  new_adr=$(git diff --cached -U0 -- docs/02_ADR_LOG.md | grep -oE '^\+(## ADR-[0-9]+|- ADR-[0-9]+ \[)' | grep -oE 'ADR-[0-9]+' || true)
   for a in $new_adr; do
     staged | grep -q '^docs/02_ADR_INDEX.md$' || fail "$a добавлен в 02_ADR_LOG, но 02_ADR_INDEX.md не в коммите (К-19)"
     git show :docs/02_ADR_INDEX.md | grep -qF "$a" || fail "$a отсутствует в 02_ADR_INDEX.md (К-19)"
@@ -39,7 +40,8 @@ fi
 # 4. Append-only ADR-лога на staged-диффе; исключение — строки статуса (реализует ADR-016)
 d4=$(git diff --cached -U0 -- docs/02_ADR_LOG.md | grep -E '^-' | grep -vE '^--- ' || true)
 if [ -n "$d4" ]; then
-  viol=$(printf '%s\n' "$d4" | grep -vE '^-\*\*Дата:\*\*.*\*\*Статус:\*\*|^-\*\*Статус:\*\*' || true)
+  # ADR-073 §2: третья допустимая форма строки статуса — без жирного, с любым отступом
+  viol=$(printf '%s\n' "$d4" | grep -vE '^-\*\*Дата:\*\*.*\*\*Статус:\*\*|^-\*\*Статус:\*\*|^- *Статус: ' || true)
   if [ -n "$viol" ]; then
     printf '%s\n' "$viol" >&2
     fail "удалены/изменены строки ADR-лога кроме строк статуса (append-only; ADR-016)"

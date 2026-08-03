@@ -48,7 +48,7 @@ PY
 python3 - << 'PY' || fail=1
 import re, sys
 txt = open('docs/02_ADR_LOG.md', encoding='utf-8').read()
-ids = [int(m.group(1)) for m in re.finditer(r'^## ADR-(\d+)', txt, re.M)]
+ids = [int(m.group(1) or m.group(2)) for m in re.finditer(r'^(?:## ADR-(\d+)|- ADR-(\d+) \[)', txt, re.M)]
 if not ids: print("FAIL: в ADR-логе нет записей"); sys.exit(1)
 dup = sorted({i for i in ids if ids.count(i) > 1})
 if dup: print(f"FAIL: дубли номеров ADR: {dup}"); sys.exit(1)
@@ -61,7 +61,7 @@ PY
 # Реализация зеркалит tools/hooks/pre-commit п.4; печать совпавших строк — К-28.
 if git rev-parse HEAD~1 >/dev/null 2>&1; then
   viol=$(git diff HEAD~1 HEAD -- docs/02_ADR_LOG.md | grep -E '^-' | grep -vE '^--- ' \
-         | grep -vE '^-\*\*Дата:\*\*.*\*\*Статус:\*\*|^-\*\*Статус:\*\*' || true)
+         | grep -vE '^-\*\*Дата:\*\*.*\*\*Статус:\*\*|^-\*\*Статус:\*\*|^- *Статус: ' || true)
   if [ -n "$viol" ]; then
     printf '%s\n' "$viol"
     err "ADR-лог: удалены/изменены строки кроме строк статуса против HEAD~1 (append-only; ADR-016)"
