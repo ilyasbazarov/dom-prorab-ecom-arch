@@ -1,21 +1,40 @@
 {
   "permissions": {
     "allow": [
-      "Read", "Grep", "Glob", "Edit", "Write",
-      "Bash(git status:*)", "Bash(git diff:*)", "Bash(git log:*)", "Bash(git rev-parse:*)",
-      "Bash(git show:*)", "Bash(git add:*)", "Bash(git commit:*)",
-      "Bash(date:*)", "Bash(cat:*)", "Bash(ls:*)", "Bash(wc:*)",
-      "Bash(sha256sum:*)", "Bash(shasum:*)",
-      "Bash(bash tools/verify.sh*)", "Bash(bash tools/hooks/selftest.sh*)",
+      "Read",
+      "Grep",
+      "Glob",
+      "Edit",
+      "Write",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(git show:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(date:*)",
+      "Bash(cat:*)",
+      "Bash(ls:*)",
+      "Bash(wc:*)",
+      "Bash(sha256sum:*)",
+      "Bash(shasum:*)",
+      "Bash(bash tools/verify.sh*)",
+      "Bash(bash tools/hooks/selftest.sh*)",
       "Bash(bash tools/hooks/answer_check.sh*)",
-      "Bash(ln -s ../../tools/hooks/pre-commit*)"
+      "Bash(ln -s ../../tools/hooks/pre-commit*)",
+      "Bash(bash tools/answer_stats.sh*)"
     ],
     "ask": [
-      "Bash(git push:*)", "Bash(git pull:*)"
+      "Bash(git push:*)",
+      "Bash(git pull:*)"
     ],
     "deny": [
-      "Bash(git push --force*)", "Bash(git reset --hard*)", "Bash(git rebase:*)",
-      "Bash(git commit --no-verify*)", "Bash(rm -rf:*)"
+      "Bash(git push --force*)",
+      "Bash(git reset --hard*)",
+      "Bash(git rebase:*)",
+      "Bash(git commit --no-verify*)",
+      "Bash(rm -rf:*)"
     ]
   },
   "hooks": {
@@ -36,6 +55,11 @@
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/tools/hooks/answer_check.sh\"",
             "timeout": 20
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/tools/hooks/answer_judge.sh\"",
+            "timeout": 60
           }
         ]
       }
