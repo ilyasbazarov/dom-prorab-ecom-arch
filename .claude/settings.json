@@ -7,6 +7,7 @@
       "Bash(date:*)", "Bash(cat:*)", "Bash(ls:*)", "Bash(wc:*)",
       "Bash(sha256sum:*)", "Bash(shasum:*)",
       "Bash(bash tools/verify.sh*)", "Bash(bash tools/hooks/selftest.sh*)",
+      "Bash(bash tools/hooks/answer_check.sh*)",
       "Bash(ln -s ../../tools/hooks/pre-commit*)"
     ],
     "ask": [
@@ -15,6 +16,29 @@
     "deny": [
       "Bash(git push --force*)", "Bash(git reset --hard*)", "Bash(git rebase:*)",
       "Bash(git commit --no-verify*)", "Bash(rm -rf:*)"
+    ]
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/tools/hooks/answer_form_reminder.sh\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/tools/hooks/answer_check.sh\"",
+            "timeout": 20
+          }
+        ]
+      }
     ]
   }
 }
