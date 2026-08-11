@@ -13,24 +13,39 @@ TAIL="${1:-5}"
 
 [ -f "$LOG" ] || { echo "answer_stats: замера ещё нет — $LOG не создан"; exit 0; }
 
-OK=$(grep -c '	OK	' "$LOG" 2>/dev/null || true);           OK=${OK:-0}
-BACK=$(grep -c '	ВОЗВРАТ	' "$LOG" 2>/dev/null || true);     BACK=${BACK:-0}
-TOTAL=$((OK + BACK))
+# Строки с меткой ПОВТОР- относятся ко второму проходу по одному и тому же ответу и считаются
+# отдельно: по ним видно ИСХОД возврата, а не только его факт (ADR-125 §3).
+OK=$(grep -c '	OK	' "$LOG" 2>/dev/null || true);                   OK=${OK:-0}
+BACK=$(grep -c '	ВОЗВРАТ	' "$LOG" 2>/dev/null || true);             BACK=${BACK:-0}
+WARN=$(grep -c '	ПРЕДУПРЕЖДЕНИЕ	' "$LOG" 2>/dev/null || true);      WARN=${WARN:-0}
+R_OK=$(grep -c '	ПОВТОР-OK	' "$LOG" 2>/dev/null || true);           R_OK=${R_OK:-0}
+R_WARN=$(grep -c '	ПОВТОР-ПРЕДУПРЕЖДЕНИЕ	' "$LOG" 2>/dev/null || true); R_WARN=${R_WARN:-0}
+R_BACK=$(grep -c '	ПОВТОР-ВОЗВРАТ	' "$LOG" 2>/dev/null || true);     R_BACK=${R_BACK:-0}
+TOTAL=$((OK + BACK + WARN))
+REPEATS=$((R_OK + R_WARN + R_BACK))
 
 echo "Замер по $LOG"
 echo
 if [ "$TOTAL" -eq 0 ]; then
   echo "ответов с проверкой формы: 0"
 else
-  echo "ответов с проверкой формы: $TOTAL, из них возвращено на переписывание: $BACK"
+  echo "ответов с проверкой формы: $TOTAL, из них возвращено на переписывание: $BACK, с предупреждением упаковки: $WARN"
+fi
+
+echo
+echo "исход возвратов (второй проход по тому же ответу):"
+if [ "$REPEATS" -eq 0 ]; then
+  echo "  вторых проходов 0"
+else
+  echo "  переписанных чисто: $R_OK · с предупреждением: $R_WARN · всё ещё с нарушением формы: $R_BACK"
 fi
 
 echo
 echo "срабатывания по правилам (код — сколько раз):"
-if [ "$BACK" -eq 0 ]; then
-  echo "  возвратов 0"
+if [ $((BACK + WARN + REPEATS)) -eq 0 ]; then
+  echo "  срабатываний 0"
 else
-  grep '	ВОЗВРАТ	' "$LOG" | cut -f4 | tr ',' '\n' | sed '/^$/d' | sort | uniq -c | sort -rn | sed 's/^/  /'
+  grep -e '	ВОЗВРАТ	' -e '	ПРЕДУПРЕЖДЕНИЕ	' "$LOG" | cut -f4 | tr ',' '\n' | sed '/^$/d' | sort | uniq -c | sort -rn | sed 's/^/  /'
 fi
 
 echo
