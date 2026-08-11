@@ -53,7 +53,13 @@ run_case() {  # $1 ожидание pass|fail · $2 имя · $3 env-префи�
   local expect="$1" name="$2" envp="$3" rc out
   out=$(cd "$R" && git add -A && env $envp LC_ALL="$LOC" LANG="$LOC" PRECOMMIT_SKIP_VERIFY="${PSV:-0}" \
         git commit -qm "case: $name" 2>&1); rc=$?
-  if { [ "$expect" = pass ] && [ $rc -eq 0 ]; } || { [ "$expect" = fail ] && [ $rc -ne 0 ]; }; then
+  # Смерть хука по сигналу (rc > 128, напр. 141 = SIGPIPE) — ВСЕГДА провал, даже когда кейс
+  # ждал fail: коммит не прошёл, но ни одной причины не названо, а отказ проверки обязан быть
+  # громким. Без этой ветки самотест зеленел на хуке, который умирал молча на большом файле.
+  if [ $rc -gt 128 ]; then
+    FAILED=$((FAILED+1))
+    echo "ПРОВАЛ [$LOC] $name (хук убит сигналом, rc=$rc — отказ проверки тихий)"; printf '%s\n' "$out" | sed 's/^/    /'
+  elif { [ "$expect" = pass ] && [ $rc -eq 0 ]; } || { [ "$expect" = fail ] && [ $rc -ne 0 ]; }; then
     PASSED=$((PASSED+1))
   else
     FAILED=$((FAILED+1))
@@ -143,6 +149,38 @@ for LOC in C "$MB_LOCALE"; do
   new_repo
   sed -i.bak 's/тестовый открытый вопрос/уточнённый вопрос/' "$R/docs/00_STATE.md"; rm -f "$R/docs/00_STATE.md.bak"
   run_case fail "правка STATE без обновления строки Версия/updated" ""
+
+  # Лимит стенд-апа (ADR-126). Ветка останова: раздел длиннее лимита валит коммит. Положительная
+  # ветка тут не украшение — она удостоверяет, что нормальный стенд-ап из пяти полей проходит,
+  # иначе проверка запретила бы саму форму, которую предписывает протокол.
+  new_repo
+  { printf '%s\n' '### Стенд-ап' '**Где мы.** одна строка' '**Прошлый шаг.** одна строка' \
+      '**Следующий шаг.** одна строка' '**Идёт своей дорожкой.** одна строка' '**На Owner лично.** одна строка'
+  } >> "$R/docs/00_STATE.md"
+  sed -i.bak 's/^\*\*Версия:.*$/**Версия:** v2 · **updated:** 2026-01-02/' "$R/docs/00_STATE.md"; rm -f "$R/docs/00_STATE.md.bak"
+  run_case pass "стенд-ап из пяти полей проходит" ""
+
+  new_repo
+  { printf '%s\n' '### Стенд-ап'
+    i=1; while [ $i -le 21 ]; do printf 'строка полотна номер %d\n' "$i"; i=$((i+1)); done
+  } >> "$R/docs/00_STATE.md"
+  sed -i.bak 's/^\*\*Версия:.*$/**Версия:** v2 · **updated:** 2026-01-02/' "$R/docs/00_STATE.md"; rm -f "$R/docs/00_STATE.md.bak"
+  run_case fail "стенд-ап длиннее лимита валит коммит" ""
+
+  new_repo
+  LONGV=$(printf 'ц%.0s' $(seq 1 1000))   # 2000 байт: лимит считается в байтах в обеих локалях
+  sed -i.bak "s/^\*\*Версия:.*$/**Версия:** v2 · **updated:** 2026-01-02 · $LONGV/" "$R/docs/00_STATE.md"; rm -f "$R/docs/00_STATE.md.bak"
+  run_case fail "строка Версия длиннее лимита валит коммит" ""
+
+  # Большой STATE: ровно то условие, при котором проверка 6b умирала по SIGPIPE — блоб не влезал
+  # в буфер пайпа, а читающая сторона закрывалась раньше. Фикстура на 8 килострок это ловит,
+  # маленькая — нет: дефект был зелёным на коротком файле.
+  new_repo
+  { printf '%s\n' '### Подробности для модели'
+    i=1; while [ $i -le 8000 ]; do printf 'строка подробностей номер %d\n' "$i"; i=$((i+1)); done
+  } >> "$R/docs/00_STATE.md"
+  sed -i.bak 's/^\*\*Версия:.*$/**Версия:** v2 · **updated:** 2026-01-02/' "$R/docs/00_STATE.md"; rm -f "$R/docs/00_STATE.md.bak"
+  run_case pass "большой STATE не роняет проверку по SIGPIPE" ""
 
   PSV=0
   new_repo; printf '%s\n' '#!/usr/bin/env bash' 'echo "VERIFY: RED (stub)"; exit 1' > "$R/tools/verify.sh"
