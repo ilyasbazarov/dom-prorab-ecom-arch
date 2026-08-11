@@ -644,7 +644,7 @@ sources: [ADR-005, ADR-010, ADR-012, ADR-015, ADR-017, ADR-019, ADR-021, ADR-053
   (ПослеПроведения «Реализации товаров»), событие `check_printed`, адрес
   `CRM_Webhook_Path_CheckPrinted` — ОТДЕЛЬНЫЙ от канала статусов. Тело по корпусу:
   `CRM_Deal_ID`, `event`, `receipt_id`, `timestamp` (`d1_t02@4e5ec56:424-434`) плюс
-  обязательное пятое поле `receipt_type` со значением `pickup`
+  обязательное дополнительное поле `receipt_type` со значением `pickup`
   (`canonical_order_flow.md` §3.5)
 - **Ответ:** HTTP 200 от CRM. Исходы: дубль по паре `(CRM_Deal_ID, event)` → HTTP 200 без
   действий; ошибка или недоступность CRM → 1С пишет WARN в журнал, документ проводится в
@@ -713,7 +713,7 @@ sources: [ADR-005, ADR-010, ADR-012, ADR-015, ADR-017, ADR-019, ADR-021, ADR-053
   `ЛМ_РеализацияПослеПроведения`, событие `order_completed`, адрес
   `CRM_Webhook_URL_OrderStatus`. Тело: `CRM_Deal_ID`, `event`, `closing_doc_guid`,
   `closing_doc_number`, `closing_doc_type`, `timestamp` (`d1_t04@4e5ec56:278-292`) плюс
-  обязательное пятое поле `receipt_type` со значением `pickup`
+  обязательное дополнительное поле `receipt_type` со значением `pickup`
   (`canonical_order_flow.md` §3.5)
 - **Ответ:** HTTP 200 от CRM. Исходы: дубль по паре `(CRM_Deal_ID, event)` → HTTP 200 без
   действий; сделка уже в «Успешно реализовано» → HTTP 200 без повторных действий (защита от
