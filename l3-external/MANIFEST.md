@@ -60,6 +60,7 @@ sha256 первые 16 91e4b56fccac0cba, 27 страниц, генератор M
 | md/d6_t05_poslednyaya_milya_last_mile.md | D6 | Последняя миля (Last Mile) | 128 | `3cb44e1377a44ed3` |
 | md/d6_t06_vozvrat_izlishkov_i_reklamatsii.md | D6 | Возврат излишков и рекламации | 268 | `42d2a2f9813c1a87` |
 | md/d7_t01_acquiring_api.md | D7 | —, PDF постранично | 1134 | `dc24c1acca220017` |
+| md/d9_t01_bitrix_api_spec.md | D9 | —, JSON pretty-print | 3154 | `fe47b19aeb47a503` |
 
 D8 — отдельный провенанс и отдельная природа. Файл `raw/1c_data_contract.yaml`: 29 186 байт,
 sha256 первые 16 `e10009ada112c96f`, 864 строки, YAML. Внесён Owner коммитом `fd30f9a` 2026-08-11,
