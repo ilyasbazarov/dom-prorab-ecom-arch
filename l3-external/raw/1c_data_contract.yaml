@@ -1,0 +1,864 @@
+meta:
+  title: "1C / BI exchange contract"
+  version: "1.2.0"
+  swagger_ui: "/api/v1/swagger/"
+  description: >
+    Контракт обмена данными между Битрикс, 1С и BI. Обмен справочниками
+    односторонний: внешняя система вызывает endpoints Битрикс и передает
+    данные пакетами. Основной порядок загрузки: свойства товаров, склады,
+    категории, товары, контрагенты. Быстрое обновление принимает от 1С только
+    цены и остатки. Исключение по направлению обмена - создание заказа:
+    Битрикс передает данные CRM-сделки в 1С через /api/v1/create_order/.
+    Текущий настроенный маппинг доступен через /api/v1/orders/status/.
+    GET /api/v1/orders/{orderId}/status/ отдает в 1С статус, сопоставленный
+    со стадией CRM-сделки. POST и PUT того же ресурса принимают статус из 1С
+    и обновляют стадию связанной сделки по обратному маппингу.
+    Авторизация выполняется через JWT: сначала нужно получить
+    accessToken в /api/v1/auth/token/ по логину и паролю пользователя Битрикс,
+    затем передавать его в заголовке Authorization: Bearer <accessToken>.
+    Все ответы используют единый формат result/response.
+
+auth:
+  type: jwt
+  token_endpoint:
+    path: "/api/v1/auth/token/"
+    method: POST
+    request_schema: "AuthTokenRequest"
+    response_schema: "AuthTokenPayload"
+  request_header:
+    name: "Authorization"
+    value_format: "Bearer <accessToken>"
+
+common:
+  response_format:
+    type: object
+    required:
+      - result
+      - response
+    fields:
+      result:
+        type: bool
+        description: "true - запрос выполнен успешно, false - ошибка"
+      response:
+        type: void
+        description: "При успехе массив или объект данных, при ошибке описание ошибки"
+
+  inbound_packet:
+    type: array
+    description: >
+      Для основной загрузки внешняя система передает JSON-массив сущностей.
+      Пакет может быть полным или дельтой; фильтрация по дате выполняется
+      на стороне внешней системы до отправки в Битрикс.
+
+sync_modes:
+  auth:
+    description: "Получение JWT-токена для дальнейших запросов обмена."
+    endpoints:
+      - path: "/api/v1/auth/token/"
+        method: POST
+        request_schema: "AuthTokenRequest"
+        response_schema: "AuthTokenPayload"
+
+  full_sync:
+    description: >
+      Входящая загрузка справочников от внешней системы в Битрикс.
+      Обязательный порядок обработки: свойства товаров, склады, категории,
+      товары, контрагенты.
+    endpoints:
+      - path: "/api/v1/products/properties"
+        method: POST
+        order: 1
+        request_schema: "PropertyDefinition[]"
+        response_schema: "PropertyDefinition[]"
+      - path: "/api/v1/products/store_list/"
+        method: POST
+        order: 2
+        request_schema: "Store[]"
+        response_schema: "Store[]"
+      - path: "/api/v1/categories/category_list"
+        method: POST
+        order: 3
+        request_schema: "Category[]"
+        response_schema: "Category[]"
+      - path: "/api/v1/products/product_list"
+        method: POST
+        order: 4
+        request_schema: "Product[]"
+        response_schema: "Product[]"
+      - path: "/api/v1/counterparties/counterparty_list"
+        method: POST
+        order: 5
+        request_schema: "Counterparty[]"
+        response_schema: "Counterparty[]"
+        description: >
+          Counterparty_Type ищется без учета регистра по коду или названию в
+          актуальных CRM-справочниках CONTACT_TYPE/COMPANY_TYPE. Отсутствующий тип
+          создается автоматически, а его STATUS_ID записывается в TYPE_ID контакта
+          или компании. Для уже загруженного Counterparty_ID сохраняется его CRM-сущность;
+          новый нераспознанный тип по умолчанию создается в CONTACT_TYPE.
+
+  fast_update:
+    description: >
+      Входящее частое обновление только цен и остатков по складам. Внешняя
+      система периодически вызывает endpoint Битрикс и передает объект
+      FastUpdateRequest с items[]. Рекомендуемая кодировка JSON — UTF-8;
+      для совместимости также принимается Windows-1251.
+    endpoints:
+      - path: "/api/v1/products/fast_update/"
+        method: POST
+        request_schema: "FastUpdateRequest"
+        response_schema: "FastUpdateApplyResult"
+
+  orders:
+    description: >
+      Исключение из одностороннего обмена: передача данных CRM-сделки в 1С
+      для создания заказа. Исходящий POST выполняется в
+      {ORDER_API_HOST}/hs/ordersAccounting/create_order. В настройке модуля
+      lm.exchange можно указать корень информационной базы, URL до /hs либо
+      полный URL метода. Авторизация выполняется по логину и паролю из настроек
+      модуля через Basic Auth.
+
+      Delivery_Type и Payment_Method всегда передаются в 1С. Store_ID
+      передается строкой, чтобы сохранить ведущие нули. Delivery_Address
+      обязателен при Delivery_Type=delivery.
+
+      Статус заказа 1С определяется по текущей стадии связанной CRM-сделки.
+      При входящем обновлении стадия сделки определяется по статусу из 1С.
+      Соответствия настраиваются на странице
+      /crm/configs/status/#content_ONE_C_STATUS_MAPPING
+      во вкладке «Маппинг статусов 1С» по правилу:
+      Стадия сделки CRM ↔ Статус заказа 1С.
+
+      Для входящего обновления статус 1С должен быть сопоставлен ровно одной
+      стадии сделки. Отсутствующий или неоднозначный маппинг возвращает HTTP 409.
+      Рекомендуемая кодировка JSON — UTF-8; также принимается Windows-1251.
+
+      Если для стадии сделки соответствие не настроено, oneCStatus
+      возвращается со значением null.
+
+      Технические значения Delivery_Type:
+      delivery — доставка; pickup — самовывоз.
+
+      Технические значения Payment_Method:
+      online — онлайн-оплата; cash — оплата наличными.
+    endpoints:
+      - path: "/api/v1/create_order/"
+        method: POST
+        request_schema: "CreateOrderRequest"
+        response_schema: "CreateOrderPayload"
+      - path: "/api/v1/orders/status/"
+        method: GET
+        response_schema: "OrderStatusMappingList"
+      - path: "/api/v1/orders/{orderId}/status/"
+        method: GET
+        direction: "Битрикс24 -> 1С (pull)"
+        path_parameters:
+          orderId: "CRM_Deal_ID, GUID или номер заказа в 1С"
+        response_schema: "OrderStatusPayload"
+      - path: "/api/v1/orders/{orderId}/status/"
+        method: POST
+        direction: "1С -> Битрикс24"
+        path_parameters:
+          orderId: "CRM_Deal_ID, GUID или номер заказа в 1С"
+        request_schema: "OrderStatusUpdateRequest"
+        response_schema: "OrderStatusUpdateResult"
+      - path: "/api/v1/orders/{orderId}/status/"
+        method: PUT
+        direction: "1С -> Битрикс24; алиас POST"
+        path_parameters:
+          orderId: "CRM_Deal_ID, GUID или номер заказа в 1С"
+        request_schema: "OrderStatusUpdateRequest"
+        response_schema: "OrderStatusUpdateResult"
+    status_mapping:
+      settings_url: "/crm/configs/status/#content_ONE_C_STATUS_MAPPING"
+      source: "Стадия связанной CRM-сделки или входящий статус 1С"
+      target: "Статус заказа 1С из HL-справочника или стадия CRM"
+      rule: "DealStage.code <-> OneCOrderStatus"
+      no_mapping_result: "oneCStatus: null"
+
+schemas:
+  AuthTokenRequest:
+    type: object
+    required:
+      - login
+      - password
+    fields:
+      login:
+        type: string
+        description: "Логин пользователя Битрикс"
+      password:
+        type: string
+        description: "Пароль пользователя Битрикс"
+
+  AuthTokenPayload:
+    type: object
+    required:
+      - accessToken
+      - tokenType
+      - expiresIn
+      - expiresAt
+    fields:
+      accessToken:
+        type: string
+        description: "JWT-токен для Authorization header"
+      tokenType:
+        type: string
+        enum:
+          - Bearer
+      expiresIn:
+        type: int
+        description: "Время жизни токена в секундах"
+      expiresAt:
+        type: string
+        format: date-time
+        description: "Дата и время истечения токена"
+
+  ImportApplyResult:
+    type: object
+    required:
+      - received
+      - processed
+      - created
+      - updated
+      - skipped
+    fields:
+      received:
+        type: int
+        description: "Сколько элементов пришло в запросе"
+      processed:
+        type: int
+        description: "Сколько элементов успешно обработано"
+      created:
+        type: int
+        description: "Сколько элементов создано в Битрикс"
+      updated:
+        type: int
+        description: "Сколько элементов обновлено в Битрикс"
+      skipped:
+        type: int
+        description: "Сколько элементов пропущено"
+      warnings:
+        type: string[]
+      errors:
+        type: string[]
+
+  Product:
+    type: object
+    required:
+      - GUID
+      - Raw_Name
+      - Name_Clean
+      - Measure
+      - categoryIds
+      - Prices
+      - Stocks
+    fields:
+      GUID:
+        type: string
+        description: "Внешний идентификатор товара 1С"
+      Raw_Name:
+        type: string
+        description: "Исходное название товара из 1С"
+      Name_Clean:
+        type: string
+        description: "Очищенное название товара для сайта"
+      Action_Flag:
+        type: string
+        nullable: true
+        description: "Флаг действия со стороны 1С"
+      categoryIds:
+        type: string[]
+        description: "Идентификаторы категорий, к которым привязан товар"
+      Category_L2:
+        type: string
+        nullable: true
+        description: "Название категории второго уровня, если передается"
+      Measure:
+        schema: Measure
+      Prices:
+        type: ProductPrice[]
+      Stocks:
+        type: ProductStock[]
+      Ecom_Status:
+        type: string
+        nullable: true
+        description: "Статус товара для e-commerce"
+      Is_Toxic_Offline:
+        type: bool
+        nullable: true
+        description: "Признак токсичности для офлайн-продаж"
+      Toxic_Online:
+        type: bool
+        nullable: true
+        description: "Признак токсичности для онлайн-продаж"
+      Cross_Sell_GUIDs:
+        type: string[]
+        description: "GUID товаров для кросс-сейла"
+      Cross_Sell_Source:
+        type: string
+        nullable: true
+        description: "Источник кросс-сейла"
+      Weight_kg:
+        type: number
+        nullable: true
+        description: "Вес товара в килограммах"
+      Volume_m3:
+        type: number
+        nullable: true
+        description: "Объем товара в кубических метрах"
+      Weight_Source:
+        type: string
+        nullable: true
+        description: "Источник данных о весе"
+      is_oversize:
+        type: bool
+        nullable: true
+        description: "Крупногабаритный товар"
+      is_returnable:
+        type: bool
+        nullable: true
+        description: "Можно ли вернуть товар"
+      properties:
+        type: PropertyValue[]
+        description: "Значения свойств товара"
+      PreviewImage:
+        type: string
+        nullable: true
+        description: "URL изображения анонса"
+      DetailImage:
+        type: string
+        nullable: true
+        description: "URL детального изображения"
+      Gallery:
+        type: string[]
+        description: "URL дополнительных изображений"
+      Created_At:
+        type: string
+        format: date-time
+        nullable: true
+      Updated_At:
+        type: string
+        format: date-time
+        nullable: true
+      Deleted_At:
+        type: string
+        format: date-time
+        nullable: true
+
+  ProductPrice:
+    type: object
+    required:
+      - Price_Type
+      - Value
+    fields:
+      Price_Type:
+        type: string
+        description: "Тип цены из внешней системы. Если типа цены нет в Битрикс, он создается автоматически."
+      Value:
+        type: number
+        description: "Значение цены"
+      Updated_At:
+        type: string
+        format: date-time
+        nullable: true
+
+  ProductStock:
+    type: object
+    required:
+      - Store_ID
+      - Stock_Free
+    fields:
+      Store_ID:
+        type: string
+        description: "Идентификатор склада во внешней системе. Если склада нет в Битрикс, он создается автоматически."
+      Stock_Physical:
+        type: number
+        nullable: true
+        description: "Физический остаток"
+      Stock_Reserved:
+        type: number
+        nullable: true
+        description: "Зарезервированное количество"
+      Stock_Free:
+        type: number
+        description: "Доступное количество"
+      Updated_At:
+        type: string
+        format: date-time
+        nullable: true
+
+  PropertyValue:
+    type: object
+    required:
+      - code
+      - value
+    fields:
+      code:
+        type: string
+        description: "Код свойства из справочника /api/v1/products/properties"
+      value:
+        type: array
+        description: "Значение или список значений свойства"
+
+  PropertyDefinition:
+    type: object
+    required:
+      - code
+      - name
+      - type
+    fields:
+      code:
+        type: string
+        description: "Код свойства. По этому коду сайт ищет и обновляет свойство."
+      name:
+        type: string
+        description: "Название свойства"
+      type:
+        type: string
+        enum:
+          - string
+          - int
+          - enum
+          - file
+          - html
+          - date
+          - datetime
+        description: >
+          Тип свойства в формате обмена. Битрикс-тип определяется на стороне
+          сайта автоматически: string - строка, int - число, enum - список,
+          file - файл, html - HTML/текст, date - дата, datetime - дата и время.
+      multiple:
+        type: bool
+        description: "Множественное свойство"
+      values:
+        type: PropertyEnumValue[]
+        description: "Список значений для enum"
+
+  PropertyEnumValue:
+    type: object
+    required:
+      - value
+    fields:
+      xmlId:
+        type: string
+        nullable: true
+        description: "Стабильный XML_ID значения. Если не передан, сайт сформирует его из value."
+      value:
+        type: string
+        description: "Отображаемое значение"
+      sort:
+        type: int
+        nullable: true
+      default:
+        type: bool
+
+  Category:
+    type: object
+    required:
+      - Category_ID
+      - Category_Name
+    fields:
+      Category_ID:
+        type: string
+        description: "Внешний идентификатор категории"
+      Category_Name:
+        type: string
+        description: "Название категории"
+      Parent_Category_ID:
+        type: string
+        nullable: true
+        description: "Внешний идентификатор родительской категории"
+      Category_L2:
+        type: string
+        nullable: true
+        description: "Каноническая категория второго уровня"
+      Category_Path:
+        type: string[]
+        nullable: true
+        description: "Путь категории для отладки дерева"
+
+  Counterparty:
+    type: object
+    required:
+      - Counterparty_ID
+      - Counterparty_Type
+      - Name
+    fields:
+      Counterparty_ID:
+        type: string
+        description: "Внешний идентификатор контрагента"
+      Counterparty_Type:
+        type: string
+        description: >
+          Тип контрагента. Обработчик использует актуальные типы CRM;
+          если значения нет, создает его идемпотентно и назначает контрагенту.
+      Name:
+        type: string
+        description: "Название контрагента"
+      Phone:
+        type: string
+        nullable: true
+      Email:
+        type: string
+        nullable: true
+      INN:
+        type: string
+        nullable: true
+      Updated_At:
+        type: string
+        format: date-time
+        nullable: true
+
+  Store:
+    type: object
+    required:
+      - Store_ID
+      - Store_Name
+    fields:
+      Store_ID:
+        type: string
+        description: "Идентификатор склада"
+      Store_Code:
+        type: string
+        description: "Код склада"
+      Store_Name:
+        type: string
+        description: "Название склада"
+      Store_City:
+        type: string
+        nullable: true
+      Store_Address:
+        type: string
+        nullable: true
+      Store_Is_Active:
+        type: bool
+      Store_Sort:
+        type: number
+        nullable: true
+
+  OneCOrderStatus:
+    type: object
+    required:
+      - name
+    fields:
+      code:
+        type: string
+        nullable: true
+        description: "Идентификатор статуса в 1С (UF_XML_ID). Может быть null, если используется только название."
+      name:
+        type: string
+        description: "Название статуса заказа в 1С."
+
+  DealStage:
+    type: object
+    required:
+      - code
+      - name
+    fields:
+      code:
+        type: string
+        description: "Технический код стадии сделки CRM."
+      name:
+        type: string
+        description: "Название стадии сделки CRM."
+
+  OrderStatusMappingItem:
+    type: object
+    required:
+      - dealStage
+      - oneCStatus
+    fields:
+      dealStage:
+        schema: DealStage
+        description: "Стадия сделки CRM."
+      oneCStatus:
+        schema: OneCOrderStatus
+        description: "Настроенный для стадии статус заказа 1С."
+
+  OrderStatusMappingList:
+    type: array
+    items:
+      schema: OrderStatusMappingItem
+
+  OrderStatusPayload:
+    type: object
+    required:
+      - dealStage
+      - oneCStatus
+    fields:
+      dealStage:
+        schema: DealStage
+        description: "Текущая стадия связанной CRM-сделки."
+      oneCStatus:
+        schema: OneCOrderStatus
+        nullable: true
+        description: "Статус заказа 1С из маппинга. null — соответствие для стадии не настроено."
+
+  OrderStatusUpdateRequest:
+    type: object
+    required:
+      - oneCStatus
+    fields:
+      oneCStatus:
+        type: object
+        at_least_one:
+          - code
+          - name
+        fields:
+          code:
+            type: string
+            nullable: true
+            description: "Код статуса в 1С; сопоставляется с UF_XML_ID."
+          name:
+            type: string
+            nullable: true
+            description: "Название статуса; используется как резервный ключ."
+
+  OrderStatusUpdateResult:
+    type: object
+    required:
+      - orderId
+      - dealId
+      - updated
+      - previousDealStage
+      - dealStage
+      - oneCStatus
+    fields:
+      orderId:
+        type: string
+      dealId:
+        type: int
+      updated:
+        type: bool
+        description: "false для идемпотентного повтора текущего статуса."
+      previousDealStage:
+        schema: DealStage
+      dealStage:
+        schema: DealStage
+      oneCStatus:
+        schema: OneCOrderStatus
+
+  Measure:
+    type: object
+    required:
+      - id
+      - code
+      - name
+    fields:
+      id:
+        type: int
+      code:
+        type: string
+      name:
+        type: string
+
+  FastUpdateItem:
+    type: object
+    required:
+      - GUID
+      - Prices
+      - Stocks
+    fields:
+      GUID:
+        type: string
+        description: "Внешний идентификатор товара 1С"
+      Prices:
+        type: FastUpdatePrice[]
+      Stocks:
+        type: FastUpdateStock[]
+
+  FastUpdatePrice:
+    type: object
+    required:
+      - Price_Type
+      - Value
+    fields:
+      Price_Type:
+        type: string
+        description: "Тип цены из внешней системы. Если типа цены нет в Битрикс, он создается автоматически."
+      Value:
+        type: number
+        nullable: true
+        description: "Значение цены"
+
+  FastUpdateStock:
+    type: object
+    required:
+      - Store_ID
+      - Stock_Free
+    fields:
+      Store_ID:
+        type: string
+        description: "Идентификатор склада во внешней системе. Если склада нет в Битрикс, он создается автоматически."
+      Stock_Physical:
+        type: number
+        nullable: true
+        description: "Физический остаток"
+      Stock_Reserved:
+        type: number
+        nullable: true
+        description: "Зарезервированное количество"
+      Stock_Free:
+        type: number
+        description: "Доступное количество"
+
+  FastUpdateRequest:
+    type: object
+    required:
+      - items
+    fields:
+      items:
+        type: FastUpdateItem[]
+        description: "Измененные цены и остатки по товарам. Дата обработки и requestId формируются в Битрикс, источник определяется по авторизованному пользователю."
+
+  FastUpdateApplyResult:
+    type: object
+    fields:
+      requestId:
+        type: string
+        description: "ID запроса, сгенерированный Битрикс"
+      processedAt:
+        type: string
+        format: date-time
+        description: "Дата обработки пакета в Битрикс"
+      received:
+        type: int
+        description: "Сколько строк пришло в запросе"
+      processed:
+        type: int
+        description: "Сколько товаров успешно обработано"
+      skipped:
+        type: int
+        description: "Сколько строк пропущено"
+      pricesUpdated:
+        type: int
+        description: "Сколько цен обновлено"
+      stocksUpdated:
+        type: int
+        description: "Сколько складских остатков обновлено"
+      priceTypesCreated:
+        type: int
+        description: "Сколько типов цен автоматически создано в Битрикс"
+      storesCreated:
+        type: int
+        description: "Сколько складов автоматически создано в Битрикс"
+      productsActivated:
+        type: int
+        description: "Сколько товаров активировано"
+      productsDeactivated:
+        type: int
+        description: "Сколько товаров деактивировано"
+      warnings:
+        type: string[]
+      errors:
+        type: string[]
+
+  CreateOrderRequest:
+    type: object
+    required:
+      - CRM_Deal_ID
+      - Client_Phone
+      - Store_ID
+      - Delivery_Type
+      - Payment_Method
+      - Items
+    fields:
+      CRM_Deal_ID:
+        type: string
+        pattern: "^[1-9][0-9]*$"
+        example: "1234568"
+      Client_Phone:
+        type: string
+      Delivery_Type:
+        type: string
+        enum:
+          - delivery
+          - pickup
+        description: "Тип получения. Технические значения: delivery — доставка, pickup — самовывоз."
+        example: "delivery"
+      Payment_Method:
+        type: string
+        enum:
+          - online
+          - cash
+        description: "Способ оплаты. Технические значения: online — онлайн-оплата, cash — оплата наличными."
+        example: "online"
+      Store_ID:
+        type: string
+        description: "Идентификатор склада. Строковый тип сохраняет ведущие нули."
+        example: "00000001"
+      Delivery_Address:
+        type: string
+        nullable: true
+        description: "Обязателен при Delivery_Type=delivery; для самовывоза может быть null."
+      DATE_PICKUP:
+        type: string
+        format: date
+        nullable: true
+      TIME_SLOT:
+        type: string
+        nullable: true
+        pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]-([01][0-9]|2[0-3]):[0-5][0-9]$"
+        example: "10:00-12:00"
+      Comment:
+        type: string
+        nullable: true
+      Items:
+        type: CreateOrderItem[]
+        min_items: 1
+
+  CreateOrderItem:
+    type: object
+    required:
+      - GUID
+      - Qty
+      - Price_Ecom
+    fields:
+      GUID:
+        type: string
+      Qty:
+        type: number
+        exclusive_minimum: 0
+      Price_Ecom:
+        type: number
+        minimum: 0
+
+  CreateOrderPayload:
+    type: object
+    required:
+      - status
+    fields:
+      status:
+        type: string
+        description: "Технический результат выполнения create_order. Это не статус заказа 1С; бизнес-статус определяется через маппинг стадии сделки."
+        enum:
+          - success
+          - partial
+          - rejected
+          - error
+      purchase_order_guid:
+        type: string
+        nullable: true
+      purchase_order_number:
+        type: string
+        nullable: true
+      idempotent:
+        type: bool
+      reason:
+        type: string
+        nullable: true
+      details:
+        type: string
+        nullable: true
+      items:
+        type: CreateOrderResponseItem[]
+
+  CreateOrderResponseItem:
+    type: object
+    fields:
+      GUID:
+        type: string
+      requested_qty:
+        type: number
+      available_qty:
+        type: number
