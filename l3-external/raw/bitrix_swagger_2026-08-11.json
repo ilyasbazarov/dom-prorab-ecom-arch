@@ -1,0 +1,3130 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "1C Data Contract",
+    "version": "1.2.0",
+    "description": "Контракт обмена данными между Битрикс, 1С и BI.\n\nОбмен справочниками односторонний: внешняя система сама вызывает endpoints Битрикс и передает данные пакетами.\n\nПорядок основной загрузки:\n1. `POST /api/v1/products/properties` - свойства товаров.\n2. `POST /api/v1/products/store_list/` - склады.\n3. `POST /api/v1/categories/category_list` - категории.\n4. `POST /api/v1/products/product_list` - товары с привязкой к категориям, свойствами, ценами и остатками.\n5. `POST /api/v1/counterparties/counterparty_list` - контрагенты.\n\n`Fast Update` - отдельный входящий POST для частого обновления только цен и остатков по складам.\nИсключение по направлению обмена - создание заказа: Битрикс передает данные CRM-сделки в 1С через `/api/v1/create_order/`.\nТекущий настроенный маппинг доступен в `GET /api/v1/orders/status/`. Статус конкретного заказа определяется по стадии сделки через `GET /api/v1/orders/{orderId}/status/`.\n\nАвторизация выполняется через JWT:\n1. `POST /api/v1/auth/token/` - получить `accessToken` по логину и паролю пользователя Битрикс.\n2. В остальные запросы передавать HTTP-заголовок `Authorization: Bearer <accessToken>`.\n\nВсе JSON-ответы возвращаются в формате `{ result, response }`. Внешняя система сама формирует полный или дельта-пакет данных."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "1С / BI servers"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Auth",
+      "description": "Получение JWT-токена для авторизации запросов обмена"
+    },
+    {
+      "name": "Full Sync",
+      "description": "Входящий прием справочников от внешней системы: свойства, склады, категории, товары, контрагенты"
+    },
+    {
+      "name": "Fast Update",
+      "description": "Входящее быстрое обновление остатков по складам и цен от 1С"
+    },
+    {
+      "name": "Orders",
+      "description": "Передача данных CRM-сделки в 1С для создания заказа"
+    },
+    {
+      "name": "Order Status",
+      "description": "Получение стадии сделки и сопоставленного статуса заказа 1С.\n\n### Маппинг статусов 1С\n\nСтатус заказа для 1С определяется по текущей стадии связанной CRM-сделки. В обратном направлении стадия сделки определяется по переданному статусу 1С.\nСоответствия настраиваются на странице `/crm/configs/status/#content_ONE_C_STATUS_MAPPING` во вкладке **«Маппинг статусов 1С»**:\n\n`Стадия сделки CRM` ↔ `Статус заказа 1С`.\n\nДля обновления из 1С один статус 1С должен быть сопоставлен ровно одной стадии сделки. Неоднозначный обратный маппинг возвращает HTTP 409."
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/api/v1/auth/token/": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Получить JWT-токен",
+        "description": "1С или BI передает логин и пароль пользователя Битрикс, получает JWT и дальше использует его в заголовке `Authorization: Bearer <accessToken>`.",
+        "operationId": "issueJwtToken",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthTokenRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "JWT-токен для запросов обмена",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthTokenResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неверный логин или пароль",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/products/properties": {
+      "post": {
+        "tags": [
+          "Full Sync"
+        ],
+        "summary": "Принять справочник свойств товаров",
+        "description": "Первый шаг основной загрузки. Внешняя система передает список свойств, которые затем используются в товарах через `Product.properties.code`. Поддерживаемые типы в запросе: `string`, `int`, `enum`, `file`, `html`, `date`, `datetime`. Битрикс-тип определяется на стороне сайта автоматически.",
+        "operationId": "receiveProductProperties",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductPropertiesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Результат приема свойств товаров",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductPropertiesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/products/store_list/": {
+      "post": {
+        "tags": [
+          "Full Sync"
+        ],
+        "summary": "Принять справочник складов",
+        "description": "Второй шаг основной загрузки. Склады должны быть обработаны до товаров, чтобы остатки в `Product.Stocks[]` ссылались на существующие склады.",
+        "operationId": "receiveStoreList",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StoreListRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Результат приема складов",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoreListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/categories/category_list": {
+      "post": {
+        "tags": [
+          "Full Sync"
+        ],
+        "summary": "Принять дерево категорий",
+        "description": "Третий шаг основной загрузки. Категории должны быть обработаны до товаров, чтобы `Product.categoryIds` ссылался на существующие разделы.",
+        "operationId": "receiveCategoryList",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CategoryListRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Результат приема категорий",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/products/product_list": {
+      "post": {
+        "tags": [
+          "Full Sync"
+        ],
+        "summary": "Принять товары с карточными данными и свойствами",
+        "description": "Четвертый шаг основной загрузки. Товар содержит `categoryIds` для привязки к разделам, `properties[]` для значений свойств, `Prices[]` для цен и `Stocks[]` для остатков. Оперативное обновление цен/остатков принимает endpoint `/api/v1/products/fast_update/`.",
+        "operationId": "receiveProductList",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductListRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Результат приема товаров",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/counterparties/counterparty_list": {
+      "post": {
+        "tags": [
+          "Full Sync"
+        ],
+        "summary": "Принять контрагентов",
+        "description": "Пятый шаг основной загрузки. Контрагенты загружаются после справочников и товаров.\n\n**Кейс нового типа:**\n1. Импорт определяет CRM-сущность по `Counterparty_Type`: известные бизнес-типы маппит на контакт/компанию, для остальных проверяются текущие `CONTACT_TYPE` и `COMPANY_TYPE` CRM.\n2. Тип ищется без учета регистра по `STATUS_ID` или отображаемому названию.\n3. Если тип отсутствует, для уже загруженного `Counterparty_ID` сохраняется его CRM-сущность. Полностью новое нераспознанное значение создается в `CONTACT_TYPE`.\n4. Полученный/созданный `STATUS_ID` записывается в `TYPE_ID` контакта или компании; повторный импорт не создает дубль.",
+        "operationId": "receiveCounterpartyList",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CounterpartyListRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Результат приема контрагентов",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CounterpartyListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/products/fast_update/": {
+      "post": {
+        "tags": [
+          "Fast Update"
+        ],
+        "summary": "Принять быстрое обновление остатков и цен от внешней системы",
+        "description": "Внешняя система периодически вызывает этот endpoint Битрикс и передает объект с `items[]`: измененные цены и остатки по GUID товара. Рекомендуемая кодировка JSON — UTF-8; для совместимости также принимается Windows-1251. Дата обработки и requestId формируются в Битрикс, источник определяется по авторизованному пользователю. Endpoint применяет только Prices[] и Stocks[], карточку товара не перезаписывает. Если пришел новый Price_Type или Store_ID, Битрикс создает соответствующий тип цены или склад автоматически.",
+        "operationId": "applyFastUpdate",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FastUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Результат применения остатков и цен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FastUpdateApplyResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/create_order/": {
+      "post": {
+        "tags": [
+          "Orders"
+        ],
+        "summary": "Создать и зарезервировать заказ в 1С",
+        "description": "Исключение из одностороннего обмена. Endpoint передает данные CRM-сделки в 1С для создания заказа при переходе сделки в стадию `FINAL_INVOICE`, если `UF_ORDER_SENT` еще не установлен. Исходящий POST выполняется в `{ORDER_API_HOST}/hs/ordersAccounting/create_order`; в настройке модуля `lm.exchange` можно указать корень информационной базы, URL до `/hs` либо полный URL метода. Авторизация — Basic Auth по логину и паролю из настроек модуля. После успешного ответа 1С внешний номер/GUID заказа сохраняется в сделке, флаг отправки — в `UF_ORDER_SENT`. Повторная отправка блокируется, если сделка уже отмечена как отправленная.\n\n`Delivery_Type` и `Payment_Method` всегда передаются в 1С. Адрес обязателен для доставки. `Store_ID` является строкой и сохраняет ведущие нули.\n\nСтатус заказа 1С определяется по текущей `STAGE_ID` связанной CRM-сделки. Стадия сопоставляется со статусом заказа 1С через вкладку **«Маппинг статусов 1С»** на странице `/crm/configs/status/?ACTIVE_TAB=status_tab_ONE_C_STATUS_MAPPING`. Текущий маппинг доступен через `GET /api/v1/orders/status/` и используется при получении статуса через `GET /api/v1/orders/{orderId}/status/`.\n\nТехнические значения `Delivery_Type`:\n- `delivery` — доставка\n- `pickup` — самовывоз\n\nТехнические значения `Payment_Method`:\n- `online` — онлайн-оплата\n- `cash` — оплата наличными",
+        "operationId": "createOrder",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrderRequest"
+              },
+              "examples": {
+                "pickupCash": {
+                  "summary": "Самовывоз, оплата наличными",
+                  "value": {
+                    "CRM_Deal_ID": "12345",
+                    "Client_Phone": "+996555000000",
+                    "Store_ID": "00000001",
+                    "Delivery_Type": "pickup",
+                    "Payment_Method": "cash",
+                    "Delivery_Address": null,
+                    "DATE_PICKUP": "2026-06-24",
+                    "TIME_SLOT": "10:00-12:00",
+                    "Comment": "Самовывоз, оплата наличными",
+                    "Items": [
+                      {
+                        "GUID": "190f8386-09fb-11eb-80b7-000c2929cf37",
+                        "Qty": 1,
+                        "Price_Ecom": 981
+                      }
+                    ]
+                  }
+                },
+                "deliveryOnline": {
+                  "summary": "Доставка, онлайн-оплата",
+                  "value": {
+                    "CRM_Deal_ID": "1234568",
+                    "Client_Phone": "+996555000000",
+                    "Store_ID": "00000001",
+                    "Delivery_Type": "delivery",
+                    "Payment_Method": "online",
+                    "Delivery_Address": "г. Бишкек, ул. Киевская, 100",
+                    "DATE_PICKUP": "2026-06-24",
+                    "TIME_SLOT": "10:00-12:00",
+                    "Comment": "Доставка, онлайн-оплата",
+                    "Items": [
+                      {
+                        "GUID": "190f8386-09fb-11eb-80b7-000c2929cf37",
+                        "Qty": 1,
+                        "Price_Ecom": 981
+                      },
+                      {
+                        "GUID": "510d6b76-09df-11eb-80b7-000c2929cf37",
+                        "Qty": 5,
+                        "Price_Ecom": 1000
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ответ 1С по заказу",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateOrderResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orders/status/": {
+      "get": {
+        "tags": [
+          "Order Status"
+        ],
+        "summary": "Получить настроенный маппинг статусов 1С",
+        "description": "Возвращает все настроенные пары «Стадия сделки CRM → Статус заказа 1С» из вкладки **«Маппинг статусов 1С»**. Несопоставленные стадии сделки в ответ не включаются.\n\n### Маппинг статусов 1С\n\nСтатус заказа для 1С определяется по текущей стадии связанной CRM-сделки. В обратном направлении стадия сделки определяется по переданному статусу 1С.\nСоответствия настраиваются на странице `/crm/configs/status/#content_ONE_C_STATUS_MAPPING` во вкладке **«Маппинг статусов 1С»**:\n\n`Стадия сделки CRM` ↔ `Статус заказа 1С`.\n\nДля обновления из 1С один статус 1С должен быть сопоставлен ровно одной стадии сделки. Неоднозначный обратный маппинг возвращает HTTP 409.",
+        "operationId": "getOrderStatusMapping",
+        "responses": {
+          "200": {
+            "description": "Текущий маппинг стадий сделки и статусов заказа 1С",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderStatusMappingResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orders/{orderId}/status/": {
+      "get": {
+        "tags": [
+          "Order Status"
+        ],
+        "summary": "Получить статус заказа из Битрикс24 для 1С",
+        "description": "Направление **Битрикс24 → 1С** (получение статуса методом pull). По `CRM_Deal_ID`, GUID или номеру заказа Битрикс находит связанную CRM-сделку, получает её текущую стадию и применяет настроенный маппинг. Если для текущей стадии соответствие не настроено, поле `oneCStatus` возвращается со значением `null`.\n\n### Маппинг статусов 1С\n\nСтатус заказа для 1С определяется по текущей стадии связанной CRM-сделки. В обратном направлении стадия сделки определяется по переданному статусу 1С.\nСоответствия настраиваются на странице `/crm/configs/status/#content_ONE_C_STATUS_MAPPING` во вкладке **«Маппинг статусов 1С»**:\n\n`Стадия сделки CRM` ↔ `Статус заказа 1С`.\n\nДля обновления из 1С один статус 1С должен быть сопоставлен ровно одной стадии сделки. Неоднозначный обратный маппинг возвращает HTTP 409.",
+        "operationId": "getOrderStatus",
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "description": "CRM_Deal_ID, GUID или номер заказа в 1С, сохраненный в связанной CRM-сделке.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "12345"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Стадия сделки и статус заказа 1С",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderStatusResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Заказ не найден",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Order Status"
+        ],
+        "summary": "Обновить стадию сделки по статусу из 1С",
+        "description": "Направление **1С → Битрикс24**. Принимает код и/или название статуса заказа 1С, находит единственную связанную стадию CRM по настроенному маппингу и обновляет сделку. Рекомендуемая кодировка JSON — UTF-8; также принимается Windows-1251. Повтор того же статуса идемпотентен (`updated=false`). `PUT` является полным алиасом этого метода.\n\n### Маппинг статусов 1С\n\nСтатус заказа для 1С определяется по текущей стадии связанной CRM-сделки. В обратном направлении стадия сделки определяется по переданному статусу 1С.\nСоответствия настраиваются на странице `/crm/configs/status/#content_ONE_C_STATUS_MAPPING` во вкладке **«Маппинг статусов 1С»**:\n\n`Стадия сделки CRM` ↔ `Статус заказа 1С`.\n\nДля обновления из 1С один статус 1С должен быть сопоставлен ровно одной стадии сделки. Неоднозначный обратный маппинг возвращает HTTP 409.",
+        "operationId": "updateOrderStatus",
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "description": "CRM_Deal_ID, GUID или номер заказа в 1С, сохраненный в связанной CRM-сделке.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "12345"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderStatusUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Результат обновления стадии сделки",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderStatusUpdateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некорректное тело запроса",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Заказ не найден",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Статус не сопоставлен или обратный маппинг неоднозначен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Order Status"
+        ],
+        "summary": "Обновить стадию сделки по статусу из 1С (PUT)",
+        "description": "Полный алиас `POST /api/v1/orders/{orderId}/status/` для направления **1С → Битрикс24**.\n\n### Маппинг статусов 1С\n\nСтатус заказа для 1С определяется по текущей стадии связанной CRM-сделки. В обратном направлении стадия сделки определяется по переданному статусу 1С.\nСоответствия настраиваются на странице `/crm/configs/status/#content_ONE_C_STATUS_MAPPING` во вкладке **«Маппинг статусов 1С»**:\n\n`Стадия сделки CRM` ↔ `Статус заказа 1С`.\n\nДля обновления из 1С один статус 1С должен быть сопоставлен ровно одной стадии сделки. Неоднозначный обратный маппинг возвращает HTTP 409.",
+        "operationId": "replaceOrderStatus",
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "description": "CRM_Deal_ID, GUID или номер заказа в 1С, сохраненный в связанной CRM-сделке.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "12345"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderStatusUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Результат обновления стадии сделки",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderStatusUpdateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некорректное тело запроса",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Заказ не найден",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Статус не сопоставлен или обратный маппинг неоднозначен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT из `POST /api/v1/auth/token/`. Передается как `Authorization: Bearer <accessToken>`."
+      }
+    },
+    "schemas": {
+      "AuthTokenRequest": {
+        "type": "object",
+        "required": [
+          "login",
+          "password"
+        ],
+        "properties": {
+          "login": {
+            "type": "string",
+            "description": "Логин пользователя Битрикс.",
+            "x-1c-status": "current_existing"
+          },
+          "password": {
+            "type": "string",
+            "description": "Пароль пользователя Битрикс.",
+            "x-1c-status": "current_existing",
+            "format": "password"
+          }
+        },
+        "example": {
+          "login": "bitrix_user_login",
+          "password": "bitrix_user_password"
+        }
+      },
+      "AuthTokenResponse": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": [
+              "result",
+              "response"
+            ],
+            "properties": {
+              "result": {
+                "type": "boolean",
+                "description": "Флаг результата выполнения запроса.",
+                "example": true
+              },
+              "response": {
+                "description": "При result=true содержит массив/объект результата. При result=false содержит текст или объект ошибки.",
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/AuthTokenPayload"
+                  },
+                  {
+                    "type": "string",
+                    "description": "Ошибка выполнения запроса"
+                  }
+                ],
+                "example": []
+              }
+            },
+            "example": {
+              "result": true,
+              "response": []
+            }
+          }
+        ]
+      },
+      "AuthTokenPayload": {
+        "type": "object",
+        "required": [
+          "accessToken",
+          "tokenType",
+          "expiresIn",
+          "expiresAt"
+        ],
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "description": "JWT-токен.",
+            "x-1c-status": "current_existing"
+          },
+          "tokenType": {
+            "type": "string",
+            "description": "Тип токена. Всегда Bearer.",
+            "x-1c-status": "current_existing",
+            "enum": [
+              "Bearer"
+            ]
+          },
+          "expiresIn": {
+            "type": "integer",
+            "x-1c-status": "current_existing",
+            "description": "Время жизни токена в секундах."
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "x-1c-status": "current_existing",
+            "description": "Дата и время истечения токена."
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "result",
+          "response"
+        ],
+        "properties": {
+          "result": {
+            "type": "boolean",
+            "description": "Флаг результата выполнения запроса.",
+            "example": true
+          },
+          "response": {
+            "description": "При result=true содержит массив/объект результата. При result=false содержит текст или объект ошибки.",
+            "oneOf": [
+              {
+                "type": "string",
+                "description": "Описание ошибки"
+              },
+              {
+                "type": "string",
+                "description": "Ошибка выполнения запроса"
+              }
+            ],
+            "example": []
+          }
+        },
+        "example": {
+          "result": true,
+          "response": []
+        }
+      },
+      "ImportApplyResult": {
+        "type": "object",
+        "required": [
+          "received",
+          "processed",
+          "created",
+          "updated",
+          "skipped"
+        ],
+        "properties": {
+          "received": {
+            "type": "integer",
+            "x-1c-status": "current_existing",
+            "description": "Сколько элементов пришло в запросе."
+          },
+          "processed": {
+            "type": "integer",
+            "x-1c-status": "current_existing",
+            "description": "Сколько элементов успешно обработано."
+          },
+          "created": {
+            "type": "integer",
+            "x-1c-status": "current_existing",
+            "description": "Сколько элементов создано в Битрикс."
+          },
+          "updated": {
+            "type": "integer",
+            "x-1c-status": "current_existing",
+            "description": "Сколько элементов обновлено в Битрикс."
+          },
+          "skipped": {
+            "type": "integer",
+            "x-1c-status": "current_existing",
+            "description": "Сколько элементов пропущено."
+          },
+          "warnings": {
+            "type": "array",
+            "description": "Предупреждения обработки.",
+            "items": {
+              "type": "string"
+            },
+            "x-1c-status": "current_existing"
+          },
+          "errors": {
+            "type": "array",
+            "description": "Ошибки обработки отдельных элементов.",
+            "items": {
+              "type": "string"
+            },
+            "x-1c-status": "current_existing"
+          }
+        }
+      },
+      "ImportApplyResponse": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": [
+              "result",
+              "response"
+            ],
+            "properties": {
+              "result": {
+                "type": "boolean",
+                "description": "Флаг результата выполнения запроса.",
+                "example": true
+              },
+              "response": {
+                "description": "При result=true содержит массив/объект результата. При result=false содержит текст или объект ошибки.",
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/ImportApplyResult"
+                  },
+                  {
+                    "type": "string",
+                    "description": "Ошибка выполнения запроса"
+                  }
+                ],
+                "example": []
+              }
+            },
+            "example": {
+              "result": true,
+              "response": []
+            }
+          }
+        ]
+      },
+      "ProductListRequest": {
+        "type": "array",
+        "description": "Пакет товаров для создания/обновления в Битрикс",
+        "items": {
+          "$ref": "#/components/schemas/Product"
+        },
+        "example": [
+          {
+            "GUID": "TEST_PRODUCT_001",
+            "Raw_Name": "Тестовый товар 1С полный импорт",
+            "Name_Clean": "Тестовый товар 1С полный импорт",
+            "categoryIds": [
+              "CAT_TEST_ROOT_001"
+            ],
+            "Measure": {
+              "id": 5,
+              "code": "шт",
+              "name": "Штука"
+            },
+            "Prices": [
+              {
+                "Price_Type": "Price_Ecom",
+                "Value": 1290
+              },
+              {
+                "Price_Type": "Price_B2B",
+                "Value": 1180
+              },
+              {
+                "Price_Type": "Price_Retail",
+                "Value": 1350
+              }
+            ],
+            "Stocks": [
+              {
+                "Store_ID": "1",
+                "Stock_Physical": 15,
+                "Stock_Reserved": 2,
+                "Stock_Free": 13
+              },
+              {
+                "Store_ID": "WH_TEST_001",
+                "Stock_Physical": 8,
+                "Stock_Reserved": 1,
+                "Stock_Free": 7
+              }
+            ],
+            "properties": [
+              {
+                "code": "BRAND",
+                "value": [
+                  "brand_qualita"
+                ]
+              },
+              {
+                "code": "COLOR",
+                "value": [
+                  "white"
+                ]
+              },
+              {
+                "code": "DESCRIPTION",
+                "value": [
+                  "Тестовое описание товара из полного импорта"
+                ]
+              }
+            ]
+          },
+          {
+            "GUID": "49784",
+            "Raw_Name": "Паркет Tarkett «Дуб Европейский»",
+            "Name_Clean": "Паркет Tarkett Дуб Европейский обновленный",
+            "categoryIds": [
+              "CAT_TEST_CHILD_001"
+            ],
+            "Measure": {
+              "id": 5,
+              "code": "шт",
+              "name": "Штука"
+            },
+            "Prices": [
+              {
+                "Price_Type": "Price_Ecom",
+                "Value": 981
+              },
+              {
+                "Price_Type": "Price_B2B",
+                "Value": 945
+              }
+            ],
+            "Stocks": [
+              {
+                "Store_ID": "1",
+                "Stock_Physical": 999,
+                "Stock_Reserved": 0,
+                "Stock_Free": 999
+              },
+              {
+                "Store_ID": "WH_TEST_001",
+                "Stock_Physical": 12,
+                "Stock_Reserved": 2,
+                "Stock_Free": 10
+              }
+            ],
+            "properties": [
+              {
+                "code": "BRAND",
+                "value": [
+                  "brand_qualita"
+                ]
+              },
+              {
+                "code": "COLOR",
+                "value": [
+                  "white"
+                ]
+              },
+              {
+                "code": "DESCRIPTION",
+                "value": [
+                  "Обновленное описание и свойства товара"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "ProductListResponse": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": [
+              "result",
+              "response"
+            ],
+            "properties": {
+              "result": {
+                "type": "boolean",
+                "description": "Флаг результата выполнения запроса.",
+                "example": true
+              },
+              "response": {
+                "description": "При result=true содержит массив/объект результата. При result=false содержит текст или объект ошибки.",
+                "oneOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Product"
+                    }
+                  },
+                  {
+                    "type": "string",
+                    "description": "Ошибка выполнения запроса"
+                  }
+                ],
+                "example": [
+                  {
+                    "GUID": "TEST_PRODUCT_001",
+                    "Raw_Name": "Тестовый товар 1С полный импорт",
+                    "Name_Clean": "Тестовый товар 1С полный импорт",
+                    "categoryIds": [
+                      "CAT_TEST_ROOT_001"
+                    ],
+                    "Measure": {
+                      "id": 5,
+                      "code": "шт",
+                      "name": "Штука"
+                    },
+                    "Prices": [
+                      {
+                        "Price_Type": "Price_Ecom",
+                        "Value": 1290
+                      },
+                      {
+                        "Price_Type": "Price_B2B",
+                        "Value": 1180
+                      },
+                      {
+                        "Price_Type": "Price_Retail",
+                        "Value": 1350
+                      }
+                    ],
+                    "Stocks": [
+                      {
+                        "Store_ID": "1",
+                        "Stock_Physical": 15,
+                        "Stock_Reserved": 2,
+                        "Stock_Free": 13
+                      },
+                      {
+                        "Store_ID": "WH_TEST_001",
+                        "Stock_Physical": 8,
+                        "Stock_Reserved": 1,
+                        "Stock_Free": 7
+                      }
+                    ],
+                    "properties": [
+                      {
+                        "code": "BRAND",
+                        "value": [
+                          "brand_qualita"
+                        ]
+                      },
+                      {
+                        "code": "COLOR",
+                        "value": [
+                          "white"
+                        ]
+                      },
+                      {
+                        "code": "DESCRIPTION",
+                        "value": [
+                          "Тестовое описание товара из полного импорта"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "GUID": "49784",
+                    "Raw_Name": "Паркет Tarkett «Дуб Европейский»",
+                    "Name_Clean": "Паркет Tarkett Дуб Европейский обновленный",
+                    "categoryIds": [
+                      "CAT_TEST_CHILD_001"
+                    ],
+                    "Measure": {
+                      "id": 5,
+                      "code": "шт",
+                      "name": "Штука"
+                    },
+                    "Prices": [
+                      {
+                        "Price_Type": "Price_Ecom",
+                        "Value": 981
+                      },
+                      {
+                        "Price_Type": "Price_B2B",
+                        "Value": 945
+                      }
+                    ],
+                    "Stocks": [
+                      {
+                        "Store_ID": "1",
+                        "Stock_Physical": 999,
+                        "Stock_Reserved": 0,
+                        "Stock_Free": 999
+                      },
+                      {
+                        "Store_ID": "WH_TEST_001",
+                        "Stock_Physical": 12,
+                        "Stock_Reserved": 2,
+                        "Stock_Free": 10
+                      }
+                    ],
+                    "properties": [
+                      {
+                        "code": "BRAND",
+                        "value": [
+                          "brand_qualita"
+                        ]
+                      },
+                      {
+                        "code": "COLOR",
+                        "value": [
+                          "white"
+                        ]
+                      },
+                      {
+                        "code": "DESCRIPTION",
+                        "value": [
+                          "Обновленное описание и свойства товара"
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "example": {
+              "result": true,
+              "response": [
+                {
+                  "GUID": "TEST_PRODUCT_001",
+                  "Raw_Name": "Тестовый товар 1С полный импорт",
+                  "Name_Clean": "Тестовый товар 1С полный импорт",
+                  "categoryIds": [
+                    "CAT_TEST_ROOT_001"
+                  ],
+                  "Measure": {
+                    "id": 5,
+                    "code": "шт",
+                    "name": "Штука"
+                  },
+                  "Prices": [
+                    {
+                      "Price_Type": "Price_Ecom",
+                      "Value": 1290
+                    },
+                    {
+                      "Price_Type": "Price_B2B",
+                      "Value": 1180
+                    },
+                    {
+                      "Price_Type": "Price_Retail",
+                      "Value": 1350
+                    }
+                  ],
+                  "Stocks": [
+                    {
+                      "Store_ID": "1",
+                      "Stock_Physical": 15,
+                      "Stock_Reserved": 2,
+                      "Stock_Free": 13
+                    },
+                    {
+                      "Store_ID": "WH_TEST_001",
+                      "Stock_Physical": 8,
+                      "Stock_Reserved": 1,
+                      "Stock_Free": 7
+                    }
+                  ],
+                  "properties": [
+                    {
+                      "code": "BRAND",
+                      "value": [
+                        "brand_qualita"
+                      ]
+                    },
+                    {
+                      "code": "COLOR",
+                      "value": [
+                        "white"
+                      ]
+                    },
+                    {
+                      "code": "DESCRIPTION",
+                      "value": [
+                        "Тестовое описание товара из полного импорта"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "GUID": "49784",
+                  "Raw_Name": "Паркет Tarkett «Дуб Европейский»",
+                  "Name_Clean": "Паркет Tarkett Дуб Европейский обновленный",
+                  "categoryIds": [
+                    "CAT_TEST_CHILD_001"
+                  ],
+                  "Measure": {
+                    "id": 5,
+                    "code": "шт",
+                    "name": "Штука"
+                  },
+                  "Prices": [
+                    {
+                      "Price_Type": "Price_Ecom",
+                      "Value": 981
+                    },
+                    {
+                      "Price_Type": "Price_B2B",
+                      "Value": 945
+                    }
+                  ],
+                  "Stocks": [
+                    {
+                      "Store_ID": "1",
+                      "Stock_Physical": 999,
+                      "Stock_Reserved": 0,
+                      "Stock_Free": 999
+                    },
+                    {
+                      "Store_ID": "WH_TEST_001",
+                      "Stock_Physical": 12,
+                      "Stock_Reserved": 2,
+                      "Stock_Free": 10
+                    }
+                  ],
+                  "properties": [
+                    {
+                      "code": "BRAND",
+                      "value": [
+                        "brand_qualita"
+                      ]
+                    },
+                    {
+                      "code": "COLOR",
+                      "value": [
+                        "white"
+                      ]
+                    },
+                    {
+                      "code": "DESCRIPTION",
+                      "value": [
+                        "Обновленное описание и свойства товара"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "Product": {
+        "type": "object",
+        "required": [
+          "GUID",
+          "Raw_Name",
+          "Name_Clean",
+          "Measure",
+          "categoryIds",
+          "Prices",
+          "Stocks"
+        ],
+        "properties": {
+          "GUID": {
+            "type": "string",
+            "description": "Стабильный идентификатор товара. Каноническое имя из ТЗ.",
+            "x-1c-status": "from_tz"
+          },
+          "Raw_Name": {
+            "type": "string",
+            "description": "Сырое название из 1С/Catalog.csv, используется как скрытое поисковое свойство.",
+            "x-1c-status": "from_tz"
+          },
+          "Name_Clean": {
+            "type": "string",
+            "description": "Очищенное витринное название из BI. Если BI не смог очистить, дублируется Raw_Name.",
+            "x-1c-status": "from_tz"
+          },
+          "Action_Flag": {
+            "type": "string",
+            "description": "Флаг действия BI/Action List, например Manual_Rename или Need_Check.",
+            "nullable": true,
+            "x-1c-status": "from_tz"
+          },
+          "categoryIds": {
+            "type": "array",
+            "description": "Массив ID категорий товара. Текущий модуль lm.exchange использует это поле для привязки товара к разделам по XML_ID.",
+            "items": {
+              "type": "string"
+            },
+            "x-1c-status": "current_existing"
+          },
+          "Category_L2": {
+            "type": "string",
+            "description": "Категория второго уровня для fallback-рекомендаций и аналитики.",
+            "nullable": true,
+            "x-1c-status": "from_tz"
+          },
+          "Measure": {
+            "$ref": "#/components/schemas/Measure",
+            "x-1c-status": "from_tz",
+            "description": "Нормализованная единица измерения для Битрикса."
+          },
+          "Prices": {
+            "type": "array",
+            "description": "Массив цен товара. В product_list цены сгруппированы, чтобы не держать Price_Ecom/Price_Promo/Price_Retail/Price_B2B на верхнем уровне товара.",
+            "items": {
+              "$ref": "#/components/schemas/ProductPrice"
+            },
+            "x-1c-status": "from_tz"
+          },
+          "Stocks": {
+            "type": "array",
+            "description": "Массив остатков товара по складам. В product_list остатки сгруппированы, чтобы не держать Stock_Physical/Stock_Reserved/Stock_Free на верхнем уровне товара.",
+            "items": {
+              "$ref": "#/components/schemas/ProductStock"
+            },
+            "x-1c-status": "from_tz"
+          },
+          "Ecom_Status": {
+            "type": "string",
+            "description": "Статус товара для управления видимостью витрины через BI Slow Track.",
+            "nullable": true,
+            "x-1c-status": "from_tz"
+          },
+          "Is_Toxic_Offline": {
+            "type": "boolean",
+            "x-1c-status": "from_tz",
+            "description": "Флаг токсичного/архивного офлайн-товара из BI write-back."
+          },
+          "Toxic_Online": {
+            "type": "boolean",
+            "x-1c-status": "from_tz",
+            "description": "Флаг токсичного товара для онлайн-рекомендаций/витрины."
+          },
+          "Cross_Sell_GUIDs": {
+            "type": "array",
+            "description": "GUID сопутствующих товаров, до 3 позиций.",
+            "items": {
+              "type": "string"
+            },
+            "x-1c-status": "from_tz"
+          },
+          "Cross_Sell_Source": {
+            "type": "string",
+            "description": "Источник рекомендаций.",
+            "nullable": true,
+            "x-1c-status": "from_tz",
+            "enum": [
+              "apriori",
+              "category_fallback",
+              null
+            ]
+          },
+          "Weight_kg": {
+            "type": "number",
+            "nullable": true,
+            "x-1c-status": "from_tz",
+            "description": "Вес одной товарной единицы."
+          },
+          "Volume_m3": {
+            "type": "number",
+            "nullable": true,
+            "x-1c-status": "from_tz",
+            "description": "Объем одной товарной единицы."
+          },
+          "Weight_Source": {
+            "type": "string",
+            "description": "Источник веса/объема.",
+            "nullable": true,
+            "x-1c-status": "from_tz",
+            "enum": [
+              "action_list",
+              "regex",
+              "category_default",
+              null
+            ]
+          },
+          "is_oversize": {
+            "type": "boolean",
+            "x-1c-status": "from_tz",
+            "description": "Признак негабаритного товара для доставки."
+          },
+          "is_returnable": {
+            "type": "boolean",
+            "x-1c-status": "from_tz",
+            "description": "Признак возвратности товара."
+          },
+          "properties": {
+            "type": "object",
+            "required": [
+              "code",
+              "value"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "Код свойства товара из справочника `/api/v1/products/properties`.",
+                "x-1c-status": "current_existing"
+              },
+              "value": {
+                "type": "array",
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    }
+                  ]
+                },
+                "x-1c-status": "current_existing",
+                "description": "Значения свойства."
+              }
+            },
+            "example": {
+              "code": "BRAND",
+              "value": [
+                "QUALITA"
+              ]
+            },
+            "x-1c-status": "current_existing",
+            "description": "Свойства товара в формате { code, value }."
+          },
+          "PreviewImage": {
+            "type": "string",
+            "description": "Изображение анонса.",
+            "nullable": true,
+            "x-1c-status": "missing_planned"
+          },
+          "DetailImage": {
+            "type": "string",
+            "description": "Детальное изображение.",
+            "nullable": true,
+            "x-1c-status": "missing_planned"
+          },
+          "Gallery": {
+            "type": "array",
+            "description": "Галерея изображений.",
+            "items": {
+              "type": "string"
+            },
+            "x-1c-status": "missing_planned"
+          },
+          "Created_At": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "x-1c-status": "current_existing",
+            "description": "Дата создания, если нужна для синхронизации."
+          },
+          "Updated_At": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "x-1c-status": "current_existing",
+            "description": "Дата обновления для incremental sync."
+          },
+          "Deleted_At": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "x-1c-status": "missing_planned",
+            "description": "Дата удаления."
+          }
+        }
+      },
+      "ProductPrice": {
+        "type": "object",
+        "required": [
+          "Price_Type",
+          "Value"
+        ],
+        "properties": {
+          "Price_Type": {
+            "type": "string",
+            "description": "Тип цены из внешней системы. Если типа цены нет в Битрикс, он создается автоматически.",
+            "x-1c-status": "from_tz"
+          },
+          "Value": {
+            "type": "number",
+            "nullable": true,
+            "x-1c-status": "from_tz",
+            "description": "Значение цены. Для Price_Promo может быть null."
+          },
+          "Updated_At": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "x-1c-status": "from_tz",
+            "description": "Дата обновления цены."
+          }
+        },
+        "example": {
+          "Price_Type": "Price_Ecom",
+          "Value": 112,
+          "Updated_At": "2026-05-05T06:44:37+03:00"
+        }
+      },
+      "ProductStock": {
+        "type": "object",
+        "required": [
+          "Store_ID",
+          "Stock_Free"
+        ],
+        "properties": {
+          "Store_ID": {
+            "type": "string",
+            "description": "Идентификатор склада/точки хранения во внешней системе. Если склада нет в Битрикс, он создается автоматически.",
+            "x-1c-status": "from_tz"
+          },
+          "Stock_Physical": {
+            "type": "number",
+            "nullable": true,
+            "x-1c-status": "from_tz",
+            "description": "Физический остаток на складе."
+          },
+          "Stock_Reserved": {
+            "type": "number",
+            "nullable": true,
+            "x-1c-status": "from_tz",
+            "description": "Зарезервированный остаток на складе."
+          },
+          "Stock_Free": {
+            "type": "number",
+            "x-1c-status": "from_tz",
+            "description": "Свободный остаток на складе. Формула: MAX(0, Stock_Physical - Stock_Reserved)."
+          },
+          "Updated_At": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "x-1c-status": "from_tz",
+            "description": "Дата обновления остатка."
+          }
+        },
+        "example": {
+          "Store_ID": "belovodsk",
+          "Stock_Physical": 10,
+          "Stock_Reserved": 5,
+          "Stock_Free": 5,
+          "Updated_At": "2026-05-05T06:44:37+03:00"
+        }
+      },
+      "PropertyDefinition": {
+        "type": "object",
+        "required": [
+          "code",
+          "name",
+          "type"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Стабильный технический код свойства. По этому коду сайт ищет и обновляет свойство.",
+            "x-1c-status": "missing_planned"
+          },
+          "name": {
+            "type": "string",
+            "description": "Название свойства.",
+            "x-1c-status": "current_existing"
+          },
+          "type": {
+            "type": "string",
+            "description": "Тип свойства в формате обмена. Битрикс-тип определяется на стороне сайта автоматически:\n`string` - строка Битрикс S;\n`int` - число Битрикс N;\n`enum` - список Битрикс L;\n`file` - файл Битрикс F;\n`html` - HTML/текст;\n`date` - дата;\n`datetime` - дата и время.",
+            "x-1c-status": "missing_planned",
+            "enum": [
+              "string",
+              "int",
+              "enum",
+              "file",
+              "html",
+              "date",
+              "datetime"
+            ]
+          },
+          "multiple": {
+            "type": "boolean",
+            "x-1c-status": "missing_planned",
+            "description": "Множественное свойство."
+          },
+          "values": {
+            "type": "array",
+            "description": "Допустимые значения для enum. Для простых типов может быть пустым массивом.",
+            "items": {
+              "$ref": "#/components/schemas/PropertyEnumValue"
+            },
+            "x-1c-status": "missing_planned"
+          }
+        },
+        "example": {
+          "code": "BRAND",
+          "name": "Бренд",
+          "type": "enum",
+          "multiple": false,
+          "values": [
+            {
+              "xmlId": "brand_qualita",
+              "value": "QUALITA"
+            }
+          ]
+        }
+      },
+      "PropertyEnumValue": {
+        "type": "object",
+        "required": [
+          "value"
+        ],
+        "properties": {
+          "xmlId": {
+            "type": "string",
+            "description": "Стабильный XML_ID значения списка. Если не передан, сайт сформирует его из value.",
+            "nullable": true,
+            "x-1c-status": "missing_planned"
+          },
+          "value": {
+            "type": "string",
+            "description": "Отображаемое значение.",
+            "x-1c-status": "missing_planned"
+          },
+          "sort": {
+            "type": "integer",
+            "nullable": true,
+            "x-1c-status": "missing_planned",
+            "description": "Сортировка значения."
+          },
+          "default": {
+            "type": "boolean",
+            "x-1c-status": "missing_planned",
+            "description": "Значение по умолчанию."
+          }
+        },
+        "example": {
+          "xmlId": "brand_qualita",
+          "value": "QUALITA",
+          "sort": 100,
+          "default": false
+        }
+      },
+      "ProductPropertiesRequest": {
+        "type": "array",
+        "description": "Пакет свойств товаров для создания/обновления в Битрикс. Справочник свойств загружается до товаров, чтобы Product.properties.code ссылался на существующее свойство.",
+        "items": {
+          "$ref": "#/components/schemas/PropertyDefinition"
+        },
+        "example": [
+          {
+            "code": "BRAND",
+            "name": "Бренд",
+            "type": "enum",
+            "multiple": false,
+            "values": [
+              {
+                "xmlId": "brand_qualita",
+                "value": "QUALITA"
+              }
+            ]
+          },
+          {
+            "code": "COLOR",
+            "name": "Цвет",
+            "type": "enum",
+            "multiple": true,
+            "values": [
+              {
+                "xmlId": "white",
+                "value": "Белый"
+              }
+            ]
+          },
+          {
+            "code": "MANUAL",
+            "name": "Инструкция",
+            "type": "file",
+            "multiple": true,
+            "values": []
+          },
+          {
+            "code": "DESCRIPTION",
+            "name": "Описание",
+            "type": "html",
+            "multiple": false,
+            "values": []
+          }
+        ]
+      },
+      "ProductPropertiesResponse": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": [
+              "result",
+              "response"
+            ],
+            "properties": {
+              "result": {
+                "type": "boolean",
+                "description": "Флаг результата выполнения запроса.",
+                "example": true
+              },
+              "response": {
+                "description": "При result=true содержит массив/объект результата. При result=false содержит текст или объект ошибки.",
+                "oneOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/PropertyDefinition"
+                    }
+                  },
+                  {
+                    "type": "string",
+                    "description": "Ошибка выполнения запроса"
+                  }
+                ],
+                "example": [
+                  {
+                    "code": "BRAND",
+                    "name": "Бренд",
+                    "type": "enum",
+                    "multiple": false,
+                    "values": [
+                      {
+                        "xmlId": "brand_qualita",
+                        "value": "QUALITA"
+                      }
+                    ]
+                  },
+                  {
+                    "code": "COLOR",
+                    "name": "Цвет",
+                    "type": "enum",
+                    "multiple": true,
+                    "values": [
+                      {
+                        "xmlId": "white",
+                        "value": "Белый"
+                      }
+                    ]
+                  },
+                  {
+                    "code": "MANUAL",
+                    "name": "Инструкция",
+                    "type": "file",
+                    "multiple": true,
+                    "values": []
+                  },
+                  {
+                    "code": "DESCRIPTION",
+                    "name": "Описание",
+                    "type": "html",
+                    "multiple": false,
+                    "values": []
+                  }
+                ]
+              }
+            },
+            "example": {
+              "result": true,
+              "response": [
+                {
+                  "code": "BRAND",
+                  "name": "Бренд",
+                  "type": "enum",
+                  "multiple": false,
+                  "values": [
+                    {
+                      "xmlId": "brand_qualita",
+                      "value": "QUALITA"
+                    }
+                  ]
+                },
+                {
+                  "code": "COLOR",
+                  "name": "Цвет",
+                  "type": "enum",
+                  "multiple": true,
+                  "values": [
+                    {
+                      "xmlId": "white",
+                      "value": "Белый"
+                    }
+                  ]
+                },
+                {
+                  "code": "MANUAL",
+                  "name": "Инструкция",
+                  "type": "file",
+                  "multiple": true,
+                  "values": []
+                },
+                {
+                  "code": "DESCRIPTION",
+                  "name": "Описание",
+                  "type": "html",
+                  "multiple": false,
+                  "values": []
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "Category": {
+        "type": "object",
+        "required": [
+          "Category_ID",
+          "Category_Name"
+        ],
+        "properties": {
+          "Category_ID": {
+            "type": "string",
+            "description": "ID категории.",
+            "x-1c-status": "current_existing",
+            "x-current-field": "categories/category_list.data[].id"
+          },
+          "Category_Name": {
+            "type": "string",
+            "description": "Название категории.",
+            "x-1c-status": "current_existing",
+            "x-current-field": "categories/category_list.data[].name"
+          },
+          "Parent_Category_ID": {
+            "type": "string",
+            "description": "Родительская категория.",
+            "nullable": true,
+            "x-1c-status": "current_existing",
+            "x-current-field": "categories/category_list.data[].parentId"
+          },
+          "Category_L2": {
+            "type": "string",
+            "description": "Каноническая категория второго уровня из ТЗ.",
+            "nullable": true,
+            "x-1c-status": "from_tz"
+          },
+          "Category_Path": {
+            "type": "array",
+            "description": "Путь категории для отладки дерева.",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "x-1c-status": "missing_planned"
+          }
+        },
+        "example": {
+          "Category_ID": "CAT_TEST_ROOT_001",
+          "Category_Name": "Тестовая категория",
+          "Parent_Category_ID": null,
+          "Category_L2": "Тестовая категория",
+          "Category_Path": [
+            "Тестовая категория"
+          ]
+        }
+      },
+      "CategoryListRequest": {
+        "type": "array",
+        "description": "Пакет категорий для создания/обновления в Битрикс",
+        "items": {
+          "$ref": "#/components/schemas/Category"
+        },
+        "example": [
+          {
+            "Category_ID": "CAT_TEST_ROOT_001",
+            "Category_Name": "Тестовая категория",
+            "Parent_Category_ID": null,
+            "Category_L2": "Тестовая категория",
+            "Category_Path": [
+              "Тестовая категория"
+            ]
+          },
+          {
+            "Category_ID": "CAT_TEST_CHILD_001",
+            "Category_Name": "Тестовая подкатегория",
+            "Parent_Category_ID": "CAT_TEST_ROOT_001",
+            "Category_L2": "Тестовая подкатегория",
+            "Category_Path": [
+              "Тестовая категория",
+              "Тестовая подкатегория"
+            ]
+          }
+        ]
+      },
+      "Counterparty": {
+        "type": "object",
+        "required": [
+          "Counterparty_ID",
+          "Counterparty_Type",
+          "Name"
+        ],
+        "properties": {
+          "Counterparty_ID": {
+            "type": "string",
+            "description": "Стабильный идентификатор контрагента в 1С. Сохраняется в UF_XML_ID контакта или компании.",
+            "x-1c-status": "current_existing"
+          },
+          "Counterparty_Type": {
+            "type": "string",
+            "description": "Тип контрагента из 1С. Обработчик ищет значение по коду или названию в актуальных справочниках CONTACT_TYPE/COMPANY_TYPE CRM. Если типа нет, он создается автоматически и его STATUS_ID записывается в TYPE_ID контакта/компании.",
+            "x-1c-status": "current_existing"
+          },
+          "Name": {
+            "type": "string",
+            "description": "Название контрагента или ФИО.",
+            "x-1c-status": "current_existing"
+          },
+          "Phone": {
+            "type": "string",
+            "description": "Телефон контрагента.",
+            "nullable": true,
+            "x-1c-status": "current_existing"
+          },
+          "Email": {
+            "type": "string",
+            "format": "email",
+            "nullable": true,
+            "x-1c-status": "current_existing",
+            "description": "Email контрагента."
+          },
+          "INN": {
+            "type": "string",
+            "description": "ИНН контрагента. Записывается в реквизиты CRM.",
+            "nullable": true,
+            "x-1c-status": "current_existing"
+          },
+          "Updated_At": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "x-1c-status": "current_existing",
+            "description": "Дата обновления контрагента в 1С."
+          }
+        },
+        "example": {
+          "Counterparty_ID": "KJ000096",
+          "Counterparty_Type": "Покупатель",
+          "Name": "Иванов Иван",
+          "Phone": "+996555000000",
+          "Email": "client@example.com",
+          "INN": "12345678901234",
+          "Updated_At": "2026-05-05T06:44:37+03:00"
+        }
+      },
+      "CounterpartyListRequest": {
+        "type": "array",
+        "description": "Пакет контрагентов для создания/обновления в CRM Битрикс. `Покупатель`, `Собственник`, `Подотчетное лицо` обрабатываются как контакты; `Поставщик`, `Прочее`, `Юридическое лицо`, `Компания`, `Организация` - как компании. Для прочих значений имеющийся тип CRM или уже созданный контрагент определяют сущность; полностью новое значение по умолчанию создается в CONTACT_TYPE и обрабатывается как контакт. Повторная загрузка использует тот же тип без дублирования.",
+        "items": {
+          "$ref": "#/components/schemas/Counterparty"
+        },
+        "example": [
+          {
+            "Counterparty_ID": "KJ000096",
+            "Counterparty_Type": "Покупатель",
+            "Name": "Иванов Иван",
+            "Phone": "+996555000000",
+            "Email": "client@example.com",
+            "INN": "12345678901234",
+            "Updated_At": "2026-05-05T06:44:37+03:00"
+          },
+          {
+            "Counterparty_ID": "CP_TEST_COMPANY_001",
+            "Counterparty_Type": "Поставщик",
+            "Name": "ОсОО Тестовый поставщик",
+            "Phone": "+996555111222",
+            "Email": "supplier@example.com",
+            "INN": "12345678901234",
+            "Updated_At": "2026-06-24T10:00:00+05:00"
+          }
+        ]
+      },
+      "CounterpartyListResponse": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": [
+              "result",
+              "response"
+            ],
+            "properties": {
+              "result": {
+                "type": "boolean",
+                "description": "Флаг результата выполнения запроса.",
+                "example": true
+              },
+              "response": {
+                "description": "При result=true содержит массив/объект результата. При result=false содержит текст или объект ошибки.",
+                "oneOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Counterparty"
+                    }
+                  },
+                  {
+                    "type": "string",
+                    "description": "Ошибка выполнения запроса"
+                  }
+                ],
+                "example": [
+                  {
+                    "Counterparty_ID": "KJ000096",
+                    "Counterparty_Type": "Покупатель",
+                    "Name": "Иванов Иван",
+                    "Phone": "+996555000000",
+                    "Email": "client@example.com",
+                    "INN": "12345678901234",
+                    "Updated_At": "2026-05-05T06:44:37+03:00"
+                  },
+                  {
+                    "Counterparty_ID": "CP_TEST_COMPANY_001",
+                    "Counterparty_Type": "Поставщик",
+                    "Name": "ОсОО Тестовый поставщик",
+                    "Phone": "+996555111222",
+                    "Email": "supplier@example.com",
+                    "INN": "12345678901234",
+                    "Updated_At": "2026-06-24T10:00:00+05:00"
+                  }
+                ]
+              }
+            },
+            "example": {
+              "result": true,
+              "response": [
+                {
+                  "Counterparty_ID": "KJ000096",
+                  "Counterparty_Type": "Покупатель",
+                  "Name": "Иванов Иван",
+                  "Phone": "+996555000000",
+                  "Email": "client@example.com",
+                  "INN": "12345678901234",
+                  "Updated_At": "2026-05-05T06:44:37+03:00"
+                },
+                {
+                  "Counterparty_ID": "CP_TEST_COMPANY_001",
+                  "Counterparty_Type": "Поставщик",
+                  "Name": "ОсОО Тестовый поставщик",
+                  "Phone": "+996555111222",
+                  "Email": "supplier@example.com",
+                  "INN": "12345678901234",
+                  "Updated_At": "2026-06-24T10:00:00+05:00"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "Measure": {
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "x-1c-status": "missing_planned",
+            "description": "Идентификатор единицы измерения в 1С."
+          },
+          "code": {
+            "type": "string",
+            "description": "Технический код единицы измерения.",
+            "x-1c-status": "current_existing"
+          },
+          "name": {
+            "type": "string",
+            "description": "Название единицы измерения.",
+            "x-1c-status": "current_existing"
+          }
+        }
+      },
+      "Store": {
+        "type": "object",
+        "required": [
+          "Store_ID",
+          "Store_Name"
+        ],
+        "properties": {
+          "Store_ID": {
+            "type": "string",
+            "description": "Стабильный идентификатор склада или точки хранения в 1С.",
+            "x-1c-status": "from_tz"
+          },
+          "Store_Code": {
+            "type": "string",
+            "description": "Код склада.",
+            "x-1c-status": "missing_planned"
+          },
+          "Store_Name": {
+            "type": "string",
+            "description": "Название склада.",
+            "x-1c-status": "missing_planned"
+          },
+          "Store_City": {
+            "type": "string",
+            "description": "Город склада.",
+            "nullable": true,
+            "x-1c-status": "missing_planned"
+          },
+          "Store_Address": {
+            "type": "string",
+            "description": "Адрес склада.",
+            "nullable": true,
+            "x-1c-status": "missing_planned"
+          },
+          "Store_Is_Active": {
+            "type": "boolean",
+            "x-1c-status": "missing_planned",
+            "description": "Активность склада."
+          },
+          "Store_Sort": {
+            "type": "number",
+            "x-1c-status": "missing_planned",
+            "description": "Сортировка склада."
+          }
+        },
+        "example": {
+          "Store_ID": "WH_TEST_001",
+          "Store_Code": "wh_test_001",
+          "Store_Name": "Тестовый склад 1С",
+          "Store_City": "Бишкек",
+          "Store_Address": "Бишкек, тестовый адрес",
+          "Store_Is_Active": true,
+          "Store_Sort": 200
+        }
+      },
+      "StoreListRequest": {
+        "type": "array",
+        "description": "Пакет складов для создания/обновления в Битрикс",
+        "items": {
+          "$ref": "#/components/schemas/Store"
+        },
+        "example": [
+          {
+            "Store_ID": "WH_TEST_001",
+            "Store_Code": "wh_test_001",
+            "Store_Name": "Тестовый склад 1С",
+            "Store_City": "Бишкек",
+            "Store_Address": "Бишкек, тестовый адрес",
+            "Store_Is_Active": true,
+            "Store_Sort": 200
+          }
+        ]
+      },
+      "StoreListResponse": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": [
+              "result",
+              "response"
+            ],
+            "properties": {
+              "result": {
+                "type": "boolean",
+                "description": "Флаг результата выполнения запроса.",
+                "example": true
+              },
+              "response": {
+                "description": "При result=true содержит массив/объект результата. При result=false содержит текст или объект ошибки.",
+                "oneOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Store"
+                    }
+                  },
+                  {
+                    "type": "string",
+                    "description": "Ошибка выполнения запроса"
+                  }
+                ],
+                "example": [
+                  {
+                    "Store_ID": "WH_TEST_001",
+                    "Store_Code": "wh_test_001",
+                    "Store_Name": "Тестовый склад 1С",
+                    "Store_City": "Бишкек",
+                    "Store_Address": "Бишкек, тестовый адрес",
+                    "Store_Is_Active": true,
+                    "Store_Sort": 200
+                  }
+                ]
+              }
+            },
+            "example": {
+              "result": true,
+              "response": [
+                {
+                  "Store_ID": "WH_TEST_001",
+                  "Store_Code": "wh_test_001",
+                  "Store_Name": "Тестовый склад 1С",
+                  "Store_City": "Бишкек",
+                  "Store_Address": "Бишкек, тестовый адрес",
+                  "Store_Is_Active": true,
+                  "Store_Sort": 200
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "CategoryListResponse": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": [
+              "result",
+              "response"
+            ],
+            "properties": {
+              "result": {
+                "type": "boolean",
+                "description": "Флаг результата выполнения запроса.",
+                "example": true
+              },
+              "response": {
+                "description": "При result=true содержит массив/объект результата. При result=false содержит текст или объект ошибки.",
+                "oneOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Category"
+                    }
+                  },
+                  {
+                    "type": "string",
+                    "description": "Ошибка выполнения запроса"
+                  }
+                ],
+                "example": [
+                  {
+                    "Category_ID": "CAT_TEST_ROOT_001",
+                    "Category_Name": "Тестовая категория",
+                    "Parent_Category_ID": null,
+                    "Category_L2": "Тестовая категория",
+                    "Category_Path": [
+                      "Тестовая категория"
+                    ]
+                  },
+                  {
+                    "Category_ID": "CAT_TEST_CHILD_001",
+                    "Category_Name": "Тестовая подкатегория",
+                    "Parent_Category_ID": "CAT_TEST_ROOT_001",
+                    "Category_L2": "Тестовая подкатегория",
+                    "Category_Path": [
+                      "Тестовая категория",
+                      "Тестовая подкатегория"
+                    ]
+                  }
+                ]
+              }
+            },
+            "example": {
+              "result": true,
+              "response": [
+                {
+                  "Category_ID": "CAT_TEST_ROOT_001",
+                  "Category_Name": "Тестовая категория",
+                  "Parent_Category_ID": null,
+                  "Category_L2": "Тестовая категория",
+                  "Category_Path": [
+                    "Тестовая категория"
+                  ]
+                },
+                {
+                  "Category_ID": "CAT_TEST_CHILD_001",
+                  "Category_Name": "Тестовая подкатегория",
+                  "Parent_Category_ID": "CAT_TEST_ROOT_001",
+                  "Category_L2": "Тестовая подкатегория",
+                  "Category_Path": [
+                    "Тестовая категория",
+                    "Тестовая подкатегория"
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "FastUpdateRequest": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "description": "Измененные цены и остатки по товарам.",
+            "items": {
+              "$ref": "#/components/schemas/FastUpdateItem"
+            },
+            "x-1c-status": "current_existing"
+          }
+        },
+        "example": {
+          "items": [
+            {
+              "GUID": "405f3814-f5ab-11dc-8572-001d608e54c3",
+              "Prices": [
+                {
+                  "Price_Type": "Price_Ecom",
+                  "Value": 19210
+                }
+              ],
+              "Stocks": [
+                {
+                  "Store_ID": "1",
+                  "Stock_Physical": 8,
+                  "Stock_Reserved": 0,
+                  "Stock_Free": 8
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "FastUpdatePrice": {
+        "type": "object",
+        "required": [
+          "Price_Type",
+          "Value"
+        ],
+        "properties": {
+          "Price_Type": {
+            "type": "string",
+            "description": "Тип цены из внешней системы. Если типа цены нет в Битрикс, он создается автоматически.",
+            "x-1c-status": "from_tz"
+          },
+          "Value": {
+            "type": "number",
+            "nullable": true,
+            "x-1c-status": "from_tz",
+            "description": "Значение цены. Для Price_Promo может быть null."
+          }
+        },
+        "example": {
+          "Price_Type": "Price_Ecom",
+          "Value": 112
+        }
+      },
+      "FastUpdateStock": {
+        "type": "object",
+        "required": [
+          "Store_ID",
+          "Stock_Free"
+        ],
+        "properties": {
+          "Store_ID": {
+            "type": "string",
+            "description": "Идентификатор склада/точки хранения во внешней системе. Если склада нет в Битрикс, он создается автоматически.",
+            "x-1c-status": "from_tz"
+          },
+          "Stock_Physical": {
+            "type": "number",
+            "nullable": true,
+            "x-1c-status": "from_tz",
+            "description": "Физический остаток на складе."
+          },
+          "Stock_Reserved": {
+            "type": "number",
+            "nullable": true,
+            "x-1c-status": "from_tz",
+            "description": "Зарезервированный остаток на складе."
+          },
+          "Stock_Free": {
+            "type": "number",
+            "x-1c-status": "from_tz",
+            "description": "Свободный остаток на складе. Формула: MAX(0, Stock_Physical - Stock_Reserved)."
+          }
+        },
+        "example": {
+          "Store_ID": "belovodsk",
+          "Stock_Physical": 10,
+          "Stock_Reserved": 5,
+          "Stock_Free": 5
+        }
+      },
+      "FastUpdateApplyResponse": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": [
+              "result",
+              "response"
+            ],
+            "properties": {
+              "result": {
+                "type": "boolean",
+                "description": "Флаг результата выполнения запроса.",
+                "example": true
+              },
+              "response": {
+                "description": "При result=true содержит массив/объект результата. При result=false содержит текст или объект ошибки.",
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/FastUpdateApplyResult"
+                  },
+                  {
+                    "type": "string",
+                    "description": "Ошибка выполнения запроса"
+                  }
+                ],
+                "example": []
+              }
+            },
+            "example": {
+              "result": true,
+              "response": []
+            }
+          }
+        ]
+      },
+      "FastUpdateItem": {
+        "type": "object",
+        "required": [
+          "GUID",
+          "Prices",
+          "Stocks"
+        ],
+        "properties": {
+          "GUID": {
+            "type": "string",
+            "description": "GUID товара.",
+            "x-1c-status": "from_tz"
+          },
+          "Prices": {
+            "type": "array",
+            "description": "Массив измененных цен товара.",
+            "items": {
+              "$ref": "#/components/schemas/FastUpdatePrice"
+            },
+            "x-1c-status": "from_tz"
+          },
+          "Stocks": {
+            "type": "array",
+            "description": "Массив измененных остатков товара по складам.",
+            "items": {
+              "$ref": "#/components/schemas/FastUpdateStock"
+            },
+            "x-1c-status": "from_tz"
+          }
+        }
+      },
+      "FastUpdateApplyResult": {
+        "type": "object",
+        "required": [
+          "received",
+          "processed",
+          "skipped",
+          "pricesUpdated",
+          "stocksUpdated",
+          "priceTypesCreated",
+          "storesCreated"
+        ],
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "description": "ID запроса, сгенерированный Битрикс.",
+            "x-1c-status": "current_existing"
+          },
+          "processedAt": {
+            "type": "string",
+            "format": "date-time",
+            "x-1c-status": "current_existing",
+            "description": "Дата обработки пакета в Битрикс."
+          },
+          "received": {
+            "type": "integer",
+            "x-1c-status": "current_existing",
+            "description": "Сколько строк пришло в запросе."
+          },
+          "processed": {
+            "type": "integer",
+            "x-1c-status": "current_existing",
+            "description": "Сколько товаров успешно обработано."
+          },
+          "skipped": {
+            "type": "integer",
+            "x-1c-status": "current_existing",
+            "description": "Сколько строк пропущено."
+          },
+          "pricesUpdated": {
+            "type": "integer",
+            "x-1c-status": "current_existing",
+            "description": "Сколько цен обновлено."
+          },
+          "stocksUpdated": {
+            "type": "integer",
+            "x-1c-status": "current_existing",
+            "description": "Сколько складских остатков обновлено."
+          },
+          "priceTypesCreated": {
+            "type": "integer",
+            "x-1c-status": "current_existing",
+            "description": "Сколько типов цен автоматически создано в Битрикс."
+          },
+          "storesCreated": {
+            "type": "integer",
+            "x-1c-status": "current_existing",
+            "description": "Сколько складов автоматически создано в Битрикс."
+          },
+          "productsActivated": {
+            "type": "integer",
+            "x-1c-status": "current_existing",
+            "description": "Сколько товаров активировано."
+          },
+          "productsDeactivated": {
+            "type": "integer",
+            "x-1c-status": "current_existing",
+            "description": "Сколько товаров деактивировано."
+          },
+          "warnings": {
+            "type": "array",
+            "description": "Предупреждения по товарам, складам или типам цен.",
+            "items": {
+              "type": "string"
+            },
+            "x-1c-status": "current_existing"
+          },
+          "errors": {
+            "type": "array",
+            "description": "Ошибки обработки отдельных строк.",
+            "items": {
+              "type": "string"
+            },
+            "x-1c-status": "current_existing"
+          }
+        }
+      },
+      "OrderStatusUpdateRequest": {
+        "type": "object",
+        "required": [
+          "oneCStatus"
+        ],
+        "properties": {
+          "oneCStatus": {
+            "type": "object",
+            "description": "Статус заказа, присланный 1С. code сопоставляется с UF_XML_ID справочника, name используется как резервный ключ.",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "IN_PROGRESS"
+              },
+              "name": {
+                "type": "string",
+                "example": "В работе"
+              }
+            },
+            "anyOf": [
+              {
+                "required": [
+                  "code"
+                ]
+              },
+              {
+                "required": [
+                  "name"
+                ]
+              }
+            ]
+          }
+        },
+        "example": {
+          "oneCStatus": {
+            "code": "IN_PROGRESS",
+            "name": "В работе"
+          }
+        }
+      },
+      "OrderStatusUpdateResult": {
+        "type": "object",
+        "required": [
+          "orderId",
+          "dealId",
+          "updated",
+          "previousDealStage",
+          "dealStage",
+          "oneCStatus"
+        ],
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "description": "GUID или номер заказа в 1С.",
+            "x-1c-status": "from_tz"
+          },
+          "dealId": {
+            "type": "integer",
+            "x-1c-status": "current_existing",
+            "description": "ID связанной сделки CRM."
+          },
+          "updated": {
+            "type": "boolean",
+            "x-1c-status": "current_existing",
+            "description": "true, если стадия сделки была изменена; false для идемпотентного повтора."
+          },
+          "previousDealStage": {
+            "$ref": "#/components/schemas/DealStage",
+            "x-1c-status": "current_existing",
+            "description": "Стадия сделки до обработки запроса."
+          },
+          "dealStage": {
+            "$ref": "#/components/schemas/DealStage",
+            "x-1c-status": "current_existing",
+            "description": "Стадия сделки после применения обратного маппинга."
+          },
+          "oneCStatus": {
+            "$ref": "#/components/schemas/OneCOrderStatus",
+            "x-1c-status": "from_tz",
+            "description": "Распознанный статус заказа 1С."
+          }
+        },
+        "example": {
+          "orderId": "ORDER-000123",
+          "dealId": 23,
+          "updated": true,
+          "previousDealStage": {
+            "code": "NEW",
+            "name": "Новая"
+          },
+          "dealStage": {
+            "code": "EXECUTING",
+            "name": "В работе"
+          },
+          "oneCStatus": {
+            "code": "IN_PROGRESS",
+            "name": "В работе"
+          }
+        }
+      },
+      "OrderStatusUpdateResponse": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": [
+              "result",
+              "response"
+            ],
+            "properties": {
+              "result": {
+                "type": "boolean",
+                "description": "Флаг результата выполнения запроса.",
+                "example": true
+              },
+              "response": {
+                "description": "При result=true содержит массив/объект результата. При result=false содержит текст или объект ошибки.",
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/OrderStatusUpdateResult"
+                  },
+                  {
+                    "type": "string",
+                    "description": "Ошибка выполнения запроса"
+                  }
+                ],
+                "example": {
+                  "orderId": "ORDER-000123",
+                  "dealId": 23,
+                  "updated": true,
+                  "previousDealStage": {
+                    "code": "NEW",
+                    "name": "Новая"
+                  },
+                  "dealStage": {
+                    "code": "EXECUTING",
+                    "name": "В работе"
+                  },
+                  "oneCStatus": {
+                    "code": "IN_PROGRESS",
+                    "name": "В работе"
+                  }
+                }
+              }
+            },
+            "example": {
+              "result": true,
+              "response": {
+                "orderId": "ORDER-000123",
+                "dealId": 23,
+                "updated": true,
+                "previousDealStage": {
+                  "code": "NEW",
+                  "name": "Новая"
+                },
+                "dealStage": {
+                  "code": "EXECUTING",
+                  "name": "В работе"
+                },
+                "oneCStatus": {
+                  "code": "IN_PROGRESS",
+                  "name": "В работе"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "DealStage": {
+        "type": "object",
+        "required": [
+          "code",
+          "name"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Технический код стадии сделки CRM.",
+            "x-1c-status": "current_existing"
+          },
+          "name": {
+            "type": "string",
+            "description": "Название стадии сделки CRM.",
+            "x-1c-status": "current_existing"
+          }
+        }
+      },
+      "OneCOrderStatus": {
+        "type": "object",
+        "description": "Статус заказа 1С из справочника, настроенного в маппинге CRM.",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Идентификатор статуса в 1С (UF_XML_ID). Может быть null, если в справочнике используется только название.",
+            "nullable": true,
+            "x-1c-status": "current_existing"
+          },
+          "name": {
+            "type": "string",
+            "description": "Название статуса заказа в 1С.",
+            "x-1c-status": "current_existing"
+          }
+        }
+      },
+      "OrderStatusMappingItem": {
+        "type": "object",
+        "required": [
+          "dealStage",
+          "oneCStatus"
+        ],
+        "properties": {
+          "dealStage": {
+            "$ref": "#/components/schemas/DealStage",
+            "x-1c-status": "current_existing",
+            "description": "Стадия сделки CRM."
+          },
+          "oneCStatus": {
+            "$ref": "#/components/schemas/OneCOrderStatus",
+            "x-1c-status": "current_existing",
+            "description": "Настроенный для стадии статус заказа 1С."
+          }
+        },
+        "example": {
+          "dealStage": {
+            "code": "EXECUTING",
+            "name": "В работе"
+          },
+          "oneCStatus": {
+            "code": "IN_PROGRESS",
+            "name": "В работе"
+          }
+        }
+      },
+      "OrderStatusMappingResponse": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": [
+              "result",
+              "response"
+            ],
+            "properties": {
+              "result": {
+                "type": "boolean",
+                "description": "Флаг результата выполнения запроса.",
+                "example": true
+              },
+              "response": {
+                "description": "При result=true содержит массив/объект результата. При result=false содержит текст или объект ошибки.",
+                "oneOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/OrderStatusMappingItem"
+                    }
+                  },
+                  {
+                    "type": "string",
+                    "description": "Ошибка выполнения запроса"
+                  }
+                ],
+                "example": [
+                  {
+                    "dealStage": {
+                      "code": "EXECUTING",
+                      "name": "В работе"
+                    },
+                    "oneCStatus": {
+                      "code": "IN_PROGRESS",
+                      "name": "В работе"
+                    }
+                  }
+                ]
+              }
+            },
+            "example": {
+              "result": true,
+              "response": [
+                {
+                  "dealStage": {
+                    "code": "EXECUTING",
+                    "name": "В работе"
+                  },
+                  "oneCStatus": {
+                    "code": "IN_PROGRESS",
+                    "name": "В работе"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "OrderStatusResponse": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": [
+              "result",
+              "response"
+            ],
+            "properties": {
+              "result": {
+                "type": "boolean",
+                "description": "Флаг результата выполнения запроса.",
+                "example": true
+              },
+              "response": {
+                "description": "При result=true содержит массив/объект результата. При result=false содержит текст или объект ошибки.",
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "dealStage",
+                      "oneCStatus"
+                    ],
+                    "properties": {
+                      "dealStage": {
+                        "$ref": "#/components/schemas/DealStage",
+                        "x-1c-status": "current_existing",
+                        "description": "Текущая стадия связанной CRM-сделки."
+                      },
+                      "oneCStatus": {
+                        "$ref": "#/components/schemas/OneCOrderStatus",
+                        "nullable": true,
+                        "x-1c-status": "current_existing",
+                        "description": "Статус заказа 1С, сопоставленный с текущей стадией сделки. null — соответствие не настроено."
+                      }
+                    },
+                    "example": {
+                      "dealStage": {
+                        "code": "EXECUTING",
+                        "name": "В работе"
+                      },
+                      "oneCStatus": {
+                        "code": "IN_PROGRESS",
+                        "name": "В работе"
+                      }
+                    }
+                  },
+                  {
+                    "type": "string",
+                    "description": "Ошибка выполнения запроса"
+                  }
+                ],
+                "example": {
+                  "dealStage": {
+                    "code": "EXECUTING",
+                    "name": "В работе"
+                  },
+                  "oneCStatus": {
+                    "code": "IN_PROGRESS",
+                    "name": "В работе"
+                  }
+                }
+              }
+            },
+            "example": {
+              "result": true,
+              "response": {
+                "dealStage": {
+                  "code": "EXECUTING",
+                  "name": "В работе"
+                },
+                "oneCStatus": {
+                  "code": "IN_PROGRESS",
+                  "name": "В работе"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "CreateOrderRequest": {
+        "type": "object",
+        "required": [
+          "CRM_Deal_ID",
+          "Client_Phone",
+          "Store_ID",
+          "Delivery_Type",
+          "Payment_Method",
+          "Items"
+        ],
+        "properties": {
+          "CRM_Deal_ID": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*",
+            "example": "1234568",
+            "x-1c-status": "from_tz",
+            "description": "ID сделки CRM. Используется для идемпотентности /api/v1/create_order/."
+          },
+          "Client_Phone": {
+            "type": "string",
+            "description": "Телефон клиента.",
+            "x-1c-status": "from_tz"
+          },
+          "Store_ID": {
+            "type": "string",
+            "example": "00000001",
+            "x-1c-status": "from_tz",
+            "description": "Идентификатор склада. Передается строкой, чтобы сохранить ведущие нули."
+          },
+          "Delivery_Type": {
+            "type": "string",
+            "enum": [
+              "delivery",
+              "pickup"
+            ],
+            "example": "delivery",
+            "x-1c-status": "from_tz",
+            "description": "Тип получения. Технические значения: delivery — доставка, pickup — самовывоз."
+          },
+          "Payment_Method": {
+            "type": "string",
+            "enum": [
+              "online",
+              "cash"
+            ],
+            "example": "online",
+            "x-1c-status": "from_tz",
+            "description": "Способ оплаты. Технические значения: online — онлайн-оплата, cash — оплата наличными."
+          },
+          "Delivery_Address": {
+            "type": "string",
+            "description": "Адрес доставки. Обязателен при Delivery_Type=delivery; для самовывоза может быть null.",
+            "nullable": true,
+            "x-1c-status": "from_tz"
+          },
+          "DATE_PICKUP": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "x-1c-status": "from_tz",
+            "description": "Дата доставки или самовывоза."
+          },
+          "TIME_SLOT": {
+            "type": "string",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]-([01][0-9]|2[0-3]):[0-5][0-9]$",
+            "example": "10:00-12:00",
+            "nullable": true,
+            "x-1c-status": "from_tz",
+            "description": "Временной слот доставки или самовывоза в формате HH:MM-HH:MM."
+          },
+          "Comment": {
+            "type": "string",
+            "description": "Комментарий к заказу.",
+            "nullable": true,
+            "x-1c-status": "missing_planned"
+          },
+          "Items": {
+            "type": "array",
+            "description": "Товары заказа. Массив не может быть пустым.",
+            "items": {
+              "$ref": "#/components/schemas/CreateOrderItem"
+            },
+            "x-1c-status": "missing_planned",
+            "minItems": 1
+          }
+        },
+        "example": {
+          "CRM_Deal_ID": "1234568",
+          "Client_Phone": "+996555000000",
+          "Store_ID": "00000001",
+          "Delivery_Type": "delivery",
+          "Payment_Method": "online",
+          "Delivery_Address": "г. Бишкек, ул. Киевская, 100",
+          "DATE_PICKUP": "2026-06-24",
+          "TIME_SLOT": "10:00-12:00",
+          "Comment": "Доставка, онлайн-оплата",
+          "Items": [
+            {
+              "GUID": "190f8386-09fb-11eb-80b7-000c2929cf37",
+              "Qty": 1,
+              "Price_Ecom": 981
+            },
+            {
+              "GUID": "510d6b76-09df-11eb-80b7-000c2929cf37",
+              "Qty": 5,
+              "Price_Ecom": 1000
+            }
+          ]
+        }
+      },
+      "CreateOrderItem": {
+        "type": "object",
+        "required": [
+          "GUID",
+          "Qty",
+          "Price_Ecom"
+        ],
+        "properties": {
+          "GUID": {
+            "type": "string",
+            "description": "GUID товара.",
+            "x-1c-status": "from_tz"
+          },
+          "Qty": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "x-1c-status": "from_tz",
+            "description": "Количество товара. Значение должно быть больше нуля."
+          },
+          "Price_Ecom": {
+            "type": "number",
+            "minimum": 0,
+            "x-1c-status": "from_tz",
+            "description": "Цена строки на момент подтверждения заказа. Значение не может быть отрицательным."
+          }
+        }
+      },
+      "CreateOrderResponse": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": [
+              "result",
+              "response"
+            ],
+            "properties": {
+              "result": {
+                "type": "boolean",
+                "description": "Флаг результата выполнения запроса.",
+                "example": true
+              },
+              "response": {
+                "description": "При result=true содержит массив/объект результата. При result=false содержит текст или объект ошибки.",
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/CreateOrderPayload"
+                  },
+                  {
+                    "type": "string",
+                    "description": "Ошибка выполнения запроса"
+                  }
+                ],
+                "example": {
+                  "status": "success",
+                  "purchase_order_guid": "1c-order-guid-123",
+                  "purchase_order_number": "000000123",
+                  "idempotent": false,
+                  "reason": null,
+                  "details": null,
+                  "items": []
+                }
+              }
+            },
+            "example": {
+              "result": true,
+              "response": {
+                "status": "success",
+                "purchase_order_guid": "1c-order-guid-123",
+                "purchase_order_number": "000000123",
+                "idempotent": false,
+                "reason": null,
+                "details": null,
+                "items": []
+              }
+            }
+          }
+        ]
+      },
+      "CreateOrderPayload": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Технический результат выполнения create_order. Это не статус заказа 1С; бизнес-статус определяется через маппинг стадии сделки.",
+            "x-1c-status": "from_tz",
+            "enum": [
+              "success",
+              "partial",
+              "rejected",
+              "error"
+            ]
+          },
+          "purchase_order_guid": {
+            "type": "string",
+            "description": "GUID Заказа покупателя в 1С.",
+            "nullable": true,
+            "x-1c-status": "from_tz"
+          },
+          "purchase_order_number": {
+            "type": "string",
+            "description": "Номер Заказа покупателя в 1С.",
+            "nullable": true,
+            "x-1c-status": "from_tz"
+          },
+          "idempotent": {
+            "type": "boolean",
+            "x-1c-status": "from_tz",
+            "description": "true, если повторный вызов вернул уже созданный заказ."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Код причины отказа или ошибки, например insufficient_stock или posting_failed.",
+            "nullable": true,
+            "x-1c-status": "from_tz"
+          },
+          "details": {
+            "type": "string",
+            "description": "Технические детали ошибки.",
+            "nullable": true,
+            "x-1c-status": "from_tz"
+          },
+          "items": {
+            "type": "array",
+            "description": "Позиции с нехваткой при partial/rejected.",
+            "items": {
+              "$ref": "#/components/schemas/CreateOrderResponseItem"
+            },
+            "x-1c-status": "from_tz"
+          }
+        }
+      },
+      "CreateOrderResponseItem": {
+        "type": "object",
+        "required": [
+          "GUID",
+          "requested_qty",
+          "available_qty"
+        ],
+        "properties": {
+          "GUID": {
+            "type": "string",
+            "description": "GUID товара.",
+            "x-1c-status": "from_tz"
+          },
+          "requested_qty": {
+            "type": "number",
+            "x-1c-status": "from_tz",
+            "description": "Запрошенное количество."
+          },
+          "available_qty": {
+            "type": "number",
+            "x-1c-status": "from_tz",
+            "description": "Доступное количество."
+          }
+        }
+      }
+    }
+  }
+}
