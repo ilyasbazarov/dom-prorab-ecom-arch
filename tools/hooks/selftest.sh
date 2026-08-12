@@ -176,11 +176,33 @@ for LOC in C "$MB_LOCALE"; do
   # в буфер пайпа, а читающая сторона закрывалась раньше. Фикстура на 8 килострок это ловит,
   # маленькая — нет: дефект был зелёным на коротком файле.
   new_repo
-  { printf '%s\n' '### Подробности для модели'
-    i=1; while [ $i -le 8000 ]; do printf 'строка подробностей номер %d\n' "$i"; i=$((i+1)); done
+  { printf '%s\n' '## Хвост фикстуры'
+    i=1; while [ $i -le 8000 ]; do printf 'строка хвоста номер %d\n' "$i"; i=$((i+1)); done
   } >> "$R/docs/00_STATE.md"
   sed -i.bak 's/^\*\*Версия:.*$/**Версия:** v2 · **updated:** 2026-01-02/' "$R/docs/00_STATE.md"; rm -f "$R/docs/00_STATE.md.bak"
   run_case pass "большой STATE не роняет проверку по SIGPIPE" ""
+
+  # Правило выхода остальных разделов STATE (ADR-137). У каждого лимита прогоняется ветка
+  # ОСТАНОВА (К-34): положительная ветка наступает всегда и не удостоверяет ничего.
+  new_repo
+  ORPH=$(printf 'ц%.0s' $(seq 1 1400))    # 2800 байт рядом со строкой версии — прежний класс дефекта
+  awk -v o="$ORPH" '/^\*\*Версия:/{print; print o; next} {print}' "$R/docs/00_STATE.md" > "$R/s.tmp" && mv "$R/s.tmp" "$R/docs/00_STATE.md"
+  sed -i.bak 's/^\*\*Версия:.*$/**Версия:** v2 · **updated:** 2026-01-02/' "$R/docs/00_STATE.md"; rm -f "$R/docs/00_STATE.md.bak"
+  run_case fail "хвост шапки рядом со строкой Версия валит коммит (ADR-137 §4)" ""
+
+  new_repo
+  { printf '%s\n' '### Подробности для модели'
+    i=1; while [ $i -le 151 ]; do printf '| 2026-01-01 | s_%d | предмет | журнал решений |\n' "$i"; i=$((i+1)); done
+  } >> "$R/docs/00_STATE.md"
+  sed -i.bak 's/^\*\*Версия:.*$/**Версия:** v2 · **updated:** 2026-01-02/' "$R/docs/00_STATE.md"; rm -f "$R/docs/00_STATE.md.bak"
+  run_case fail "§Подробности длиннее лимита индекса валит коммит (ADR-137 §2)" ""
+
+  new_repo
+  { printf '%s\n' '## Открытые вопросы'
+    i=1; while [ $i -le 16 ]; do printf -- '- наблюдение номер %d без владельца\n' "$i"; i=$((i+1)); done
+  } >> "$R/docs/00_STATE.md"
+  sed -i.bak 's/^\*\*Версия:.*$/**Версия:** v2 · **updated:** 2026-01-02/' "$R/docs/00_STATE.md"; rm -f "$R/docs/00_STATE.md.bak"
+  run_case fail "§Открытые вопросы длиннее лимита указателей валит коммит (ADR-137 §3)" ""
 
   PSV=0
   new_repo; printf '%s\n' '#!/usr/bin/env bash' 'echo "VERIFY: RED (stub)"; exit 1' > "$R/tools/verify.sh"
