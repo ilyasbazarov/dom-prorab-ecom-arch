@@ -112,6 +112,14 @@ for LOC in C "$MB_LOCALE"; do
   printf '%s\n' '| прочая строка |' >> "$R/docs/02_ADR_INDEX.md"
   run_case fail "индекс в коммите, но номера ADR в нём нет" ""
 
+  # OQ-09: номер стоит НЕ в конце большого индекса. Пайп `git show | grep -q` давал здесь SIGPIPE
+  # и ложный провал под pipefail; кейс держит проверку 3 честной на индексе больше буфера пайпа.
+  new_repo
+  printf '%s\n' '## ADR-002 — второе решение' '**Дата:** 2026-01-02. **Статус:** accepted' 'Текст.' >> "$R/docs/02_ADR_LOG.md"
+  printf '%s\n' '| ADR-002 | второе решение | accepted |' >> "$R/docs/02_ADR_INDEX.md"
+  awk 'BEGIN{for(i=0;i<1200;i++) printf "| ADR-001 | набивка строки индекса, чтобы файл превысил буфер пайпа в 64 КБ и SIGPIPE стал воспроизводимым | accepted | примечание %d |\n", i}' >> "$R/docs/02_ADR_INDEX.md"
+  run_case pass "номер ADR в начале большого индекса (OQ-09: без SIGPIPE)" ""
+
   new_repo; sed -i.bak 's/^Текст решения.$/Изменённый текст./' "$R/docs/02_ADR_LOG.md"; rm -f "$R/docs/02_ADR_LOG.md.bak"
   run_case fail "правка содержательной строки ADR-лога (append-only)" ""
 

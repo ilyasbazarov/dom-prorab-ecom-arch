@@ -33,7 +33,10 @@ if staged | grep -q '^docs/02_ADR_LOG.md$'; then
   new_adr=$(git diff --cached -U0 -- docs/02_ADR_LOG.md | grep -oE '^\+(## ADR-[0-9]+|- ADR-[0-9]+ \[)' | grep -oE 'ADR-[0-9]+' || true)
   for a in $new_adr; do
     staged | grep -q '^docs/02_ADR_INDEX.md$' || fail "$a добавлен в 02_ADR_LOG, но 02_ADR_INDEX.md не в коммите (К-19)"
-    git show :docs/02_ADR_INDEX.md | grep -qF "$a" || fail "$a отсутствует в 02_ADR_INDEX.md (К-19)"
+    # без пайпа в grep -q: он выходит по первому совпадению, git show ловит SIGPIPE, pipefail
+    # превращает это в ложный провал на индексе больше буфера пайпа (OQ-09; класс проверки 1)
+    idx_blob=$(git show :docs/02_ADR_INDEX.md)
+    case "$idx_blob" in *"$a"*) ;; *) fail "$a отсутствует в 02_ADR_INDEX.md (К-19)" ;; esac
   done
 fi
 
